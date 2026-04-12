@@ -16,7 +16,9 @@ public class FarmGridManager : MonoBehaviour
     [SerializeField] private Color _carrotColor = new Color(0.95f, 0.52f, 0.14f, 1f);
     [SerializeField] private Color _wheatColor = new Color(0.89f, 0.76f, 0.29f, 1f);
     [SerializeField] private Color _cornColor = new Color(0.95f, 0.86f, 0.19f, 1f);
-    [SerializeField] private int _maxGrowthStage = 3;
+    [SerializeField] private FarmCropDefinition[] _cropDefinitions;
+    [SerializeField] private float _cropSpriteScale = 0.8f;
+    [SerializeField] private int _maxGrowthStage = 4;
 
     private FarmGridCellData[,] _cells;
     private SpriteRenderer[,] _cellRenderers;
@@ -97,7 +99,7 @@ public class FarmGridManager : MonoBehaviour
         }
 
         cell.CropType = cropType;
-        cell.GrowthStage = 1;
+        cell.GrowthStage = 0;
         RefreshCropVisual(coordinates);
         return true;
     }
@@ -140,6 +142,11 @@ public class FarmGridManager : MonoBehaviour
             return false;
         }
 
+        if (toolType == FarmToolType.Sickle)
+        {
+            return TryHarvestCrop(coordinates);
+        }
+
         FarmTileState? nextState = GetToolResult(cell.State, toolType);
 
         if (!nextState.HasValue)
@@ -148,6 +155,27 @@ public class FarmGridManager : MonoBehaviour
         }
 
         return SetCellState(coordinates, nextState.Value);
+    }
+
+    public bool TryHarvestCrop(Vector2Int coordinates)
+    {
+        if (!TryGetCell(coordinates, out FarmGridCellData cell))
+        {
+            return false;
+        }
+
+        if (cell.CropType == FarmCropType.None || cell.GrowthStage < _maxGrowthStage)
+        {
+            return false;
+        }
+
+        cell.CropType = FarmCropType.None;
+        cell.GrowthStage = 0;
+        cell.State = FarmTileState.TilledSoil;
+
+        RefreshCellVisual(coordinates);
+        RefreshCropVisual(coordinates);
+        return true;
     }
 
     public bool CycleCellState(Vector2Int coordinates)
@@ -285,8 +313,21 @@ public class FarmGridManager : MonoBehaviour
 
         if (hasCrop)
         {
-            cropRenderer.color = GetColorForCrop(cropType);
-            cropRenderer.transform.localScale = Vector3.one * GetCropVisualScale(_cells[coordinates.x, coordinates.y].GrowthStage);
+            int growthStage = _cells[coordinates.x, coordinates.y].GrowthStage;
+            Sprite stageSprite = GetCropStageSprite(cropType, growthStage);
+
+            if (stageSprite != null)
+            {
+                cropRenderer.sprite = stageSprite;
+                cropRenderer.color = Color.white;
+                cropRenderer.transform.localScale = Vector3.one * _cropSpriteScale;
+            }
+            else
+            {
+                cropRenderer.sprite = GetCellSprite();
+                cropRenderer.color = GetColorForCrop(cropType);
+                cropRenderer.transform.localScale = Vector3.one * GetFallbackCropVisualScale(growthStage);
+            }
         }
     }
 
@@ -324,13 +365,33 @@ public class FarmGridManager : MonoBehaviour
         };
     }
 
-    private float GetCropVisualScale(int growthStage)
+    private Sprite GetCropStageSprite(FarmCropType cropType, int growthStage)
+    {
+        if (_cropDefinitions == null)
+        {
+            return null;
+        }
+
+        foreach (FarmCropDefinition cropDefinition in _cropDefinitions)
+        {
+            if (cropDefinition != null && cropDefinition.CropType == cropType)
+            {
+                return cropDefinition.GetStageSprite(growthStage);
+            }
+        }
+
+        return null;
+    }
+
+    private float GetFallbackCropVisualScale(int growthStage)
     {
         return growthStage switch
         {
-            1 => 0.3f,
+            0 => 0.25f,
+            1 => 0.35f,
             2 => 0.45f,
-            _ => 0.6f
+            3 => 0.55f,
+            _ => 0.65f
         };
     }
 
