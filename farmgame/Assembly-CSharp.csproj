@@ -56,7 +56,6 @@
     <Compile Include="Assets\Scripts\FarmingTools\HeldItemSystem.cs" />
     <Compile Include="Assets\_Core\Data\ItemData.cs" />
     <Compile Include="Assets\Scripts\FarmingTools\InventoryUI.cs" />
-    <Compile Include="Assets\Scripts\FarmingTools\InventoryTester.cs" />
     <Compile Include="Assets\Scripts\FarmingTools\InventorySlotUI.cs" />
     <Compile Include="Assets\Scripts\FarmingTools\ItemSourceUI.cs" />
   </ItemGroup>
