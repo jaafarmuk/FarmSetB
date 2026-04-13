@@ -78,6 +78,12 @@ public class FarmGridInputTester : MonoBehaviour
         {
             _selectedCrop = FarmCropType.Corn;
         }
+
+        if (Input.GetKeyDown(KeyCode.Alpha7))
+        {
+            _selectedTool = FarmToolType.Sickle;
+            _selectedCrop = FarmCropType.None;
+        }
     }
 
     private void TryUseSelectedToolOnTile()
