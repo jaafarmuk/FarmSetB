@@ -12,10 +12,6 @@ public class FarmGridManager : MonoBehaviour
     [SerializeField] private Color _normalSoilColor = new Color(0.47f, 0.33f, 0.21f, 1f);
     [SerializeField] private Color _tilledSoilColor = new Color(0.36f, 0.24f, 0.14f, 1f);
     [SerializeField] private Color _wateredSoilColor = new Color(0.24f, 0.39f, 0.54f, 1f);
-    [SerializeField] private Color _tomatoColor = new Color(0.85f, 0.22f, 0.22f, 1f);
-    [SerializeField] private Color _carrotColor = new Color(0.95f, 0.52f, 0.14f, 1f);
-    [SerializeField] private Color _wheatColor = new Color(0.89f, 0.76f, 0.29f, 1f);
-    [SerializeField] private Color _cornColor = new Color(0.95f, 0.86f, 0.19f, 1f);
     [SerializeField] private FarmCropDefinition[] _cropDefinitions;
     [SerializeField] private float _cropSpriteScale = 0.8f;
     [SerializeField] private int _maxGrowthStage = 4;
@@ -268,7 +264,6 @@ public class FarmGridManager : MonoBehaviour
         cropObject.transform.localScale = Vector3.one * 0.3f;
 
         SpriteRenderer cropRenderer = cropObject.AddComponent<SpriteRenderer>();
-        cropRenderer.sprite = GetCellSprite();
         cropRenderer.sortingOrder = 1;
         cropRenderer.enabled = false;
 
@@ -315,19 +310,12 @@ public class FarmGridManager : MonoBehaviour
         {
             int growthStage = _cells[coordinates.x, coordinates.y].GrowthStage;
             Sprite stageSprite = GetCropStageSprite(cropType, growthStage);
+            bool hasStageSprite = stageSprite != null;
 
-            if (stageSprite != null)
-            {
-                cropRenderer.sprite = stageSprite;
-                cropRenderer.color = Color.white;
-                cropRenderer.transform.localScale = Vector3.one * _cropSpriteScale;
-            }
-            else
-            {
-                cropRenderer.sprite = GetCellSprite();
-                cropRenderer.color = GetColorForCrop(cropType);
-                cropRenderer.transform.localScale = Vector3.one * GetFallbackCropVisualScale(growthStage);
-            }
+            cropRenderer.enabled = hasStageSprite;
+            cropRenderer.sprite = stageSprite;
+            cropRenderer.color = Color.white;
+            cropRenderer.transform.localScale = Vector3.one * _cropSpriteScale;
         }
     }
 
@@ -353,18 +341,6 @@ public class FarmGridManager : MonoBehaviour
         };
     }
 
-    private Color GetColorForCrop(FarmCropType cropType)
-    {
-        return cropType switch
-        {
-            FarmCropType.Tomato => _tomatoColor,
-            FarmCropType.Carrot => _carrotColor,
-            FarmCropType.Wheat => _wheatColor,
-            FarmCropType.Corn => _cornColor,
-            _ => Color.clear
-        };
-    }
-
     private Sprite GetCropStageSprite(FarmCropType cropType, int growthStage)
     {
         if (_cropDefinitions == null)
@@ -381,18 +357,6 @@ public class FarmGridManager : MonoBehaviour
         }
 
         return null;
-    }
-
-    private float GetFallbackCropVisualScale(int growthStage)
-    {
-        return growthStage switch
-        {
-            0 => 0.25f,
-            1 => 0.35f,
-            2 => 0.45f,
-            3 => 0.55f,
-            _ => 0.65f
-        };
     }
 
     private FarmTileState? GetToolResult(FarmTileState currentState, FarmToolType toolType)
