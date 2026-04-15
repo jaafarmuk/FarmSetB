@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class FarmGridInputTester : MonoBehaviour
 {
@@ -42,14 +43,8 @@ public class FarmGridInputTester : MonoBehaviour
             return;
         }
 
-        if (_hotbarController != null)
-        {
-            SyncSelectionFromHotbar();
-        }
-        else
-        {
-            HandleToolSelectionInput();
-        }
+        EnsureHotbarControllerReference();
+        SyncSelectionFromHotbar();
 
         if (Input.GetKeyDown(_advanceDayKey))
         {
@@ -58,48 +53,12 @@ public class FarmGridInputTester : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            {
+                return;
+            }
+
             TryUseSelectedToolOnTile();
-        }
-    }
-
-    private void HandleToolSelectionInput()
-    {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            _selectedTool = FarmToolType.Shovel;
-            _selectedCrop = FarmCropType.None;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            _selectedTool = FarmToolType.WateringCan;
-            _selectedCrop = FarmCropType.None;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            _selectedCrop = FarmCropType.Beetroot;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha4))
-        {
-            _selectedCrop = FarmCropType.Carrot;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha5))
-        {
-            _selectedCrop = FarmCropType.Potato;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha6))
-        {
-            _selectedCrop = FarmCropType.Wheat;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha7))
-        {
-            _selectedTool = FarmToolType.Axe;
-            _selectedCrop = FarmCropType.None;
         }
     }
 
@@ -135,6 +94,8 @@ public class FarmGridInputTester : MonoBehaviour
     {
         if (_hotbarController == null)
         {
+            _hasSelection = false;
+            _selectedCrop = FarmCropType.None;
             return;
         }
 
@@ -147,6 +108,19 @@ public class FarmGridInputTester : MonoBehaviour
             return;
         }
 
+        ApplySelectionFromItem(selectedItem);
+    }
+
+    private void EnsureHotbarControllerReference()
+    {
+        if (_hotbarController == null)
+        {
+            _hotbarController = Object.FindAnyObjectByType<HotbarController>();
+        }
+    }
+
+    private void ApplySelectionFromItem(ItemData selectedItem)
+    {
         _hasSelection = true;
 
         switch (selectedItem.ItemId)
