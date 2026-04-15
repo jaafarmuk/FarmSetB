@@ -5,7 +5,7 @@ public class FarmGridInputTester : MonoBehaviour
     [SerializeField] private FarmGridManager _farmGridManager;
     [SerializeField] private Camera _worldCamera;
     [SerializeField] private HotbarController _hotbarController;
-    [SerializeField] private FarmToolType _selectedTool = FarmToolType.Hoe;
+    [SerializeField] private FarmToolType _selectedTool = FarmToolType.Shovel;
     [SerializeField] private FarmCropType _selectedCrop = FarmCropType.None;
     [SerializeField] private KeyCode _advanceDayKey = KeyCode.N;
 
@@ -66,7 +66,7 @@ public class FarmGridInputTester : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
-            _selectedTool = FarmToolType.Hoe;
+            _selectedTool = FarmToolType.Shovel;
             _selectedCrop = FarmCropType.None;
         }
 
@@ -78,7 +78,7 @@ public class FarmGridInputTester : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Alpha3))
         {
-            _selectedCrop = FarmCropType.Tomato;
+            _selectedCrop = FarmCropType.Beetroot;
         }
 
         if (Input.GetKeyDown(KeyCode.Alpha4))
@@ -88,17 +88,17 @@ public class FarmGridInputTester : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Alpha5))
         {
-            _selectedCrop = FarmCropType.Wheat;
+            _selectedCrop = FarmCropType.Potato;
         }
 
         if (Input.GetKeyDown(KeyCode.Alpha6))
         {
-            _selectedCrop = FarmCropType.Corn;
+            _selectedCrop = FarmCropType.Wheat;
         }
 
         if (Input.GetKeyDown(KeyCode.Alpha7))
         {
-            _selectedTool = FarmToolType.Sickle;
+            _selectedTool = FarmToolType.Axe;
             _selectedCrop = FarmCropType.None;
         }
     }
@@ -151,29 +151,33 @@ public class FarmGridInputTester : MonoBehaviour
 
         switch (selectedItem.ItemId)
         {
+            case "tool_shovel":
             case "tool_hoe":
-                _selectedTool = FarmToolType.Hoe;
+                _selectedTool = FarmToolType.Shovel;
                 _selectedCrop = FarmCropType.None;
                 break;
             case "tool_watering_can":
                 _selectedTool = FarmToolType.WateringCan;
                 _selectedCrop = FarmCropType.None;
                 break;
+            case "tool_axe":
             case "tool_sickle":
-                _selectedTool = FarmToolType.Sickle;
+                _selectedTool = FarmToolType.Axe;
                 _selectedCrop = FarmCropType.None;
                 break;
+            case "crop_beetroot":
             case "crop_tomato":
-                _selectedCrop = FarmCropType.Tomato;
+                _selectedCrop = FarmCropType.Beetroot;
                 break;
             case "crop_carrot":
                 _selectedCrop = FarmCropType.Carrot;
                 break;
+            case "crop_potato":
+            case "crop_corn":
+                _selectedCrop = FarmCropType.Potato;
+                break;
             case "crop_wheat":
                 _selectedCrop = FarmCropType.Wheat;
-                break;
-            case "crop_corn":
-                _selectedCrop = FarmCropType.Corn;
                 break;
             default:
                 _hasSelection = false;

@@ -245,6 +245,26 @@ public class InventoryUI : MonoBehaviour
         RefreshUI();
     }
 
+    public void HandleSlotClicked(int slotIndex)
+    {
+        if (_inventorySystem == null || slotIndex < 0 || slotIndex >= _inventorySystem.HotbarSize)
+        {
+            return;
+        }
+
+        if (_hotbarController == null)
+        {
+            _hotbarController = Object.FindAnyObjectByType<HotbarController>();
+        }
+
+        if (_hotbarController == null)
+        {
+            return;
+        }
+
+        _hotbarController.SelectSlot(slotIndex);
+    }
+
     private void EnsureSlotUiCapacity(int totalSlots)
     {
         while (_slotUIs.Count < totalSlots)

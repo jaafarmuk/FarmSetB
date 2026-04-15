@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler, IPointerEnterHandler, IPointerExitHandler
+public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     [SerializeField] private Image _slotBackground;
     [SerializeField] private Image _itemIcon;
@@ -178,6 +178,21 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         ApplyCurrentBackgroundColor();
     }
 
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData.button != PointerEventData.InputButton.Left || _inventoryUI == null)
+        {
+            return;
+        }
+
+        if (_isDragging)
+        {
+            return;
+        }
+
+        _inventoryUI.HandleSlotClicked(_slotIndex);
+    }
+
     private void BeginIconDrag(PointerEventData eventData)
     {
         RectTransform iconRect = _itemIcon.rectTransform;
@@ -307,8 +322,8 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private static bool IsGeneratedHotbarItem(ItemData item)
     {
         return item != null &&
-               !string.IsNullOrWhiteSpace(item.ItemId) &&
-               (item.ItemId.StartsWith("tool_") || item.ItemId.StartsWith("crop_"));
+               !string.IsNullOrWhiteSpace(item.name) &&
+               item.name.StartsWith("Runtime_");
     }
 
     private void RegisterValidSlotDrop()

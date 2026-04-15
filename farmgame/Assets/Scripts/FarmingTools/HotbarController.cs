@@ -1,5 +1,8 @@
 using System;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class HotbarController : MonoBehaviour
 {
@@ -113,13 +116,13 @@ public class HotbarController : MonoBehaviour
             return;
         }
 
-        CreateDefaultHotbarItem(0, "tool_hoe", "Hoe", new Color(0.58f, 0.39f, 0.21f, 1f));
-        CreateDefaultHotbarItem(1, "tool_watering_can", "Watering Can", new Color(0.23f, 0.49f, 0.78f, 1f));
-        CreateDefaultHotbarItem(2, "crop_tomato", "Tomato", new Color(0.82f, 0.18f, 0.2f, 1f));
-        CreateDefaultHotbarItem(3, "crop_carrot", "Carrot", new Color(0.94f, 0.5f, 0.12f, 1f));
-        CreateDefaultHotbarItem(4, "crop_wheat", "Wheat", new Color(0.88f, 0.74f, 0.28f, 1f));
-        CreateDefaultHotbarItem(5, "crop_corn", "Corn", new Color(0.95f, 0.85f, 0.21f, 1f));
-        CreateDefaultHotbarItem(6, "tool_sickle", "Sickle", new Color(0.72f, 0.72f, 0.74f, 1f));
+        CreateDefaultHotbarItem(0, ResolveItemAsset(new[] { "Shovel_Item", "Hoe_Item" }, new[] { "tool_shovel", "tool_hoe" }), "tool_shovel", "Shovel", new Color(0.58f, 0.39f, 0.21f, 1f));
+        CreateDefaultHotbarItem(1, ResolveItemAsset(new[] { "WateringCan_Item" }, new[] { "tool_watering_can" }), "tool_watering_can", "Watering Can", new Color(0.23f, 0.49f, 0.78f, 1f));
+        CreateDefaultHotbarItem(2, ResolveItemAsset(new[] { "Beetroot_Item", "Tomato_Item" }, new[] { "crop_beetroot", "crop_tomato" }), "crop_beetroot", "Beetroot", new Color(0.62f, 0.12f, 0.24f, 1f));
+        CreateDefaultHotbarItem(3, ResolveItemAsset(new[] { "Carrot_Item" }, new[] { "crop_carrot", "carrot" }), "crop_carrot", "Carrot", new Color(0.94f, 0.5f, 0.12f, 1f));
+        CreateDefaultHotbarItem(4, ResolveItemAsset(new[] { "Potato_Item", "Corn_Item" }, new[] { "crop_potato", "crop_corn" }), "crop_potato", "Potato", new Color(0.73f, 0.59f, 0.34f, 1f));
+        CreateDefaultHotbarItem(5, ResolveItemAsset(new[] { "Wheat_Item" }, new[] { "crop_wheat" }), "crop_wheat", "Wheat", new Color(0.88f, 0.74f, 0.28f, 1f));
+        CreateDefaultHotbarItem(6, ResolveItemAsset(new[] { "Axe_Item", "Sickle_Item" }, new[] { "tool_axe", "tool_sickle" }), "tool_axe", "Axe", new Color(0.72f, 0.72f, 0.74f, 1f));
 
         for (int i = DefaultHotbarFillCount; i < _inventorySystem.HotbarSize; i++)
         {
@@ -132,7 +135,7 @@ public class HotbarController : MonoBehaviour
         }
     }
 
-    private void CreateDefaultHotbarItem(int slotIndex, string itemId, string itemName, Color iconColor)
+    private void CreateDefaultHotbarItem(int slotIndex, ItemData assetItem, string fallbackItemId, string fallbackItemName, Color fallbackIconColor)
     {
         if (slotIndex < 0 || slotIndex >= _inventorySystem.HotbarSize)
         {
@@ -146,13 +149,87 @@ public class HotbarController : MonoBehaviour
             return;
         }
 
+        ItemData item = assetItem != null
+            ? assetItem
+            : CreateRuntimeItem(fallbackItemId, fallbackItemName, fallbackIconColor);
+
+        _inventorySystem.TryAddToSlot(slotIndex, item, 1, out _);
+    }
+
+    private static ItemData CreateRuntimeItem(string itemId, string itemName, Color iconColor)
+    {
         ItemData item = ScriptableObject.CreateInstance<ItemData>();
+        item.name = $"Runtime_{itemId}";
         item.ItemId = itemId;
         item.ItemName = itemName;
         item.Icon = CreateSolidIcon(iconColor);
         item.MaxStack = 1;
+        return item;
+    }
 
-        _inventorySystem.TryAddToSlot(slotIndex, item, 1, out _);
+    private static ItemData ResolveItemAsset(string[] assetNames, string[] itemIds)
+    {
+#if UNITY_EDITOR
+        foreach (string assetName in assetNames)
+        {
+            string[] candidatePaths =
+            {
+                $"Assets/_Core/Data/{assetName}.asset",
+                $"Assets/{assetName}.asset"
+            };
+
+            foreach (string candidatePath in candidatePaths)
+            {
+                ItemData directAsset = AssetDatabase.LoadAssetAtPath<ItemData>(candidatePath);
+
+                if (directAsset != null)
+                {
+                    return directAsset;
+                }
+            }
+
+            string[] matchingGuids = AssetDatabase.FindAssets($"{assetName} t:ItemData");
+
+            foreach (string guid in matchingGuids)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                ItemData namedAsset = AssetDatabase.LoadAssetAtPath<ItemData>(assetPath);
+
+                if (namedAsset != null)
+                {
+                    return namedAsset;
+                }
+            }
+        }
+
+        string[] allItemGuids = AssetDatabase.FindAssets("t:ItemData");
+
+        foreach (string guid in allItemGuids)
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            ItemData itemAsset = AssetDatabase.LoadAssetAtPath<ItemData>(assetPath);
+
+            if (itemAsset != null && HasMatchingItemId(itemAsset, itemIds))
+            {
+                return itemAsset;
+            }
+        }
+#endif
+
+        return null;
+    }
+
+    private static bool HasMatchingItemId(ItemData itemAsset, string[] itemIds)
+    {
+        foreach (string itemId in itemIds)
+        {
+            if (string.Equals(itemAsset.ItemId, itemId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static Sprite CreateSolidIcon(Color color)

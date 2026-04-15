@@ -1,4 +1,7 @@
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class FarmGridManager : MonoBehaviour
 {
@@ -20,8 +23,13 @@ public class FarmGridManager : MonoBehaviour
     private SpriteRenderer[,] _cellRenderers;
     private SpriteRenderer[,] _cropRenderers;
     private Transform _visualRoot;
+    private InventorySystem _inventorySystem;
 
     private static Sprite _cellSprite;
+#if UNITY_EDITOR
+    private static readonly System.Collections.Generic.Dictionary<string, Sprite> EditorCropSpriteCache = new System.Collections.Generic.Dictionary<string, Sprite>();
+    private static readonly System.Collections.Generic.Dictionary<string, ItemData> EditorItemCache = new System.Collections.Generic.Dictionary<string, ItemData>();
+#endif
     private int _currentDay = 1;
 
     public int Width => _width;
@@ -31,6 +39,7 @@ public class FarmGridManager : MonoBehaviour
 
     private void Awake()
     {
+        _inventorySystem = UnityEngine.Object.FindAnyObjectByType<InventorySystem>();
         BuildGrid();
     }
 
@@ -76,27 +85,33 @@ public class FarmGridManager : MonoBehaviour
     {
         if (cropType == FarmCropType.None)
         {
+            Debug.LogWarning("Planting failed: no crop type selected.");
             return false;
         }
 
         if (!TryGetCell(coordinates, out FarmGridCellData cell))
         {
+            Debug.LogWarning($"Planting failed: cell {coordinates} is outside the grid.");
             return false;
         }
 
-        if (cell.State != FarmTileState.TilledSoil)
+        if (cell.State != FarmTileState.TilledSoil &&
+            cell.State != FarmTileState.WateredSoil)
         {
+            Debug.LogWarning($"Planting failed at {coordinates}: tile state is {cell.State}.");
             return false;
         }
 
         if (cell.CropType != FarmCropType.None)
         {
+            Debug.LogWarning($"Planting failed at {coordinates}: tile already has {cell.CropType}.");
             return false;
         }
 
         cell.CropType = cropType;
         cell.GrowthStage = 0;
         RefreshCropVisual(coordinates);
+        Debug.Log($"Planted {cropType} at {coordinates}.");
         return true;
     }
 
@@ -138,7 +153,7 @@ public class FarmGridManager : MonoBehaviour
             return false;
         }
 
-        if (toolType == FarmToolType.Sickle)
+        if (toolType == FarmToolType.Axe)
         {
             return TryHarvestCrop(coordinates);
         }
@@ -165,12 +180,38 @@ public class FarmGridManager : MonoBehaviour
             return false;
         }
 
+        ItemData harvestedItem = ResolveHarvestItem(cell.CropType);
+
+        if (harvestedItem == null)
+        {
+            Debug.LogWarning($"Harvest failed at {coordinates}: no inventory item is configured for {cell.CropType}.");
+            return false;
+        }
+
+        if (_inventorySystem == null)
+        {
+            _inventorySystem = UnityEngine.Object.FindAnyObjectByType<InventorySystem>();
+        }
+
+        if (_inventorySystem == null)
+        {
+            Debug.LogWarning($"Harvest failed at {coordinates}: no InventorySystem was found in the scene.");
+            return false;
+        }
+
+        if (!_inventorySystem.AddItem(harvestedItem, 1))
+        {
+            Debug.LogWarning($"Harvest failed at {coordinates}: inventory is full.");
+            return false;
+        }
+
         cell.CropType = FarmCropType.None;
         cell.GrowthStage = 0;
         cell.State = FarmTileState.TilledSoil;
 
         RefreshCellVisual(coordinates);
         RefreshCropVisual(coordinates);
+        Debug.Log($"Harvested {harvestedItem.ItemName} from {coordinates}.");
         return true;
     }
 
@@ -312,10 +353,12 @@ public class FarmGridManager : MonoBehaviour
             Sprite stageSprite = GetCropStageSprite(cropType, growthStage);
             bool hasStageSprite = stageSprite != null;
 
-            cropRenderer.enabled = hasStageSprite;
-            cropRenderer.sprite = stageSprite;
-            cropRenderer.color = Color.white;
-            cropRenderer.transform.localScale = Vector3.one * _cropSpriteScale;
+            cropRenderer.enabled = true;
+            cropRenderer.sprite = hasStageSprite ? stageSprite : GetCellSprite();
+            cropRenderer.color = hasStageSprite ? Color.white : GetFallbackCropColor(cropType);
+            cropRenderer.transform.localScale = hasStageSprite
+                ? Vector3.one * GetSpriteScaleForCell(stageSprite)
+                : Vector3.one * GetFallbackCropScale(growthStage);
         }
     }
 
@@ -345,25 +388,32 @@ public class FarmGridManager : MonoBehaviour
     {
         if (_cropDefinitions == null)
         {
-            return null;
+            return ResolveEditorCropStageSprite(cropType, growthStage);
         }
 
         foreach (FarmCropDefinition cropDefinition in _cropDefinitions)
         {
             if (cropDefinition != null && cropDefinition.CropType == cropType)
             {
-                return cropDefinition.GetStageSprite(growthStage);
+                Sprite stageSprite = cropDefinition.GetStageSprite(growthStage);
+
+                if (stageSprite != null)
+                {
+                    return stageSprite;
+                }
+
+                break;
             }
         }
 
-        return null;
+        return ResolveEditorCropStageSprite(cropType, growthStage);
     }
 
     private FarmTileState? GetToolResult(FarmTileState currentState, FarmToolType toolType)
     {
         return toolType switch
         {
-            FarmToolType.Hoe when currentState == FarmTileState.NormalSoil => FarmTileState.TilledSoil,
+            FarmToolType.Shovel when currentState == FarmTileState.NormalSoil => FarmTileState.TilledSoil,
             FarmToolType.WateringCan when currentState == FarmTileState.TilledSoil => FarmTileState.WateredSoil,
             _ => null
         };
@@ -396,5 +446,158 @@ public class FarmGridManager : MonoBehaviour
         Texture2D texture = Texture2D.whiteTexture;
         _cellSprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), texture.width);
         return _cellSprite;
+    }
+
+    private static Sprite ResolveEditorCropStageSprite(FarmCropType cropType, int growthStage)
+    {
+#if UNITY_EDITOR
+        string cropName = GetCropAssetName(cropType);
+
+        if (string.IsNullOrEmpty(cropName))
+        {
+            return null;
+        }
+
+        string spriteKey = $"{cropName}_{Mathf.Clamp(growthStage, 0, 99):00}";
+
+        if (EditorCropSpriteCache.TryGetValue(spriteKey, out Sprite cachedSprite))
+        {
+            return cachedSprite;
+        }
+
+        string[] matchingGuids = AssetDatabase.FindAssets($"{spriteKey} t:Sprite");
+
+        foreach (string guid in matchingGuids)
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            UnityEngine.Object[] assetsAtPath = AssetDatabase.LoadAllAssetsAtPath(assetPath);
+
+            foreach (UnityEngine.Object asset in assetsAtPath)
+            {
+                if (asset is Sprite sprite)
+                {
+                    EditorCropSpriteCache[spriteKey] = sprite;
+                    return sprite;
+                }
+            }
+        }
+#endif
+
+        return null;
+    }
+
+    private static string GetCropAssetName(FarmCropType cropType)
+    {
+        return cropType switch
+        {
+            FarmCropType.Beetroot => "beetroot",
+            FarmCropType.Carrot => "carrot",
+            FarmCropType.Potato => "potato",
+            FarmCropType.Wheat => "wheat",
+            _ => null
+        };
+    }
+
+    private static string GetHarvestItemId(FarmCropType cropType)
+    {
+        return cropType switch
+        {
+            FarmCropType.Beetroot => "crop_beetroot",
+            FarmCropType.Carrot => "crop_carrot",
+            FarmCropType.Potato => "crop_potato",
+            FarmCropType.Wheat => "crop_wheat",
+            _ => null
+        };
+    }
+
+    private static ItemData ResolveHarvestItem(FarmCropType cropType)
+    {
+        string itemId = GetHarvestItemId(cropType);
+
+        if (string.IsNullOrWhiteSpace(itemId))
+        {
+            return null;
+        }
+
+        ItemData loadedItem = FindLoadedItemById(itemId);
+
+        if (loadedItem != null)
+        {
+            return loadedItem;
+        }
+
+#if UNITY_EDITOR
+        if (EditorItemCache.TryGetValue(itemId, out ItemData cachedItem))
+        {
+            return cachedItem;
+        }
+
+        string[] itemGuids = AssetDatabase.FindAssets("t:ItemData");
+
+        foreach (string guid in itemGuids)
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            ItemData itemAsset = AssetDatabase.LoadAssetAtPath<ItemData>(assetPath);
+
+            if (itemAsset != null && string.Equals(itemAsset.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+            {
+                EditorItemCache[itemId] = itemAsset;
+                return itemAsset;
+            }
+        }
+#endif
+
+        return null;
+    }
+
+    private static ItemData FindLoadedItemById(string itemId)
+    {
+        ItemData[] loadedItems = Resources.FindObjectsOfTypeAll<ItemData>();
+
+        foreach (ItemData item in loadedItems)
+        {
+            if (item != null && string.Equals(item.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
+    private Color GetFallbackCropColor(FarmCropType cropType)
+    {
+        return cropType switch
+        {
+            FarmCropType.Beetroot => new Color(0.62f, 0.12f, 0.24f, 1f),
+            FarmCropType.Carrot => new Color(0.94f, 0.5f, 0.12f, 1f),
+            FarmCropType.Potato => new Color(0.73f, 0.59f, 0.34f, 1f),
+            FarmCropType.Wheat => new Color(0.88f, 0.74f, 0.28f, 1f),
+            _ => Color.white
+        };
+    }
+
+    private float GetFallbackCropScale(int growthStage)
+    {
+        return Mathf.Lerp(0.3f, 0.75f, Mathf.Clamp01(growthStage / (float)Mathf.Max(1, _maxGrowthStage)));
+    }
+
+    private float GetSpriteScaleForCell(Sprite sprite)
+    {
+        if (sprite == null)
+        {
+            return _cropSpriteScale;
+        }
+
+        Vector2 spriteSize = sprite.bounds.size;
+        float largestDimension = Mathf.Max(spriteSize.x, spriteSize.y);
+
+        if (largestDimension <= 0.0001f)
+        {
+            return _cropSpriteScale;
+        }
+
+        float targetSize = _cellSize * _cropSpriteScale;
+        return targetSize / largestDimension;
     }
 }

@@ -1,6 +1,6 @@
 public enum FarmToolType
 {
-    Hoe = 0,
+    Shovel = 0,
     WateringCan = 1,
-    Sickle = 2
+    Axe = 2
 }
