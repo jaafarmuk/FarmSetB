@@ -4,17 +4,22 @@ using UnityEngine;
 
 public class InventorySystem : MonoBehaviour
 {
+    [SerializeField] private int _hotbarSize = 8;
     [SerializeField] private int _inventorySize = 20;
 
     private List<InventorySlotData> _slots;
 
     public event Action InventoryChanged;
+    public int HotbarSize => Mathf.Max(0, _hotbarSize);
+    public int InventorySize => Mathf.Max(0, _inventorySize);
+    public int InventoryStartIndex => HotbarSize;
+    public int TotalSlotCount => HotbarSize + InventorySize;
 
     private void Awake()
     {
-        _slots = new List<InventorySlotData>(_inventorySize);
+        _slots = new List<InventorySlotData>(TotalSlotCount);
 
-        for (int i = 0; i < _inventorySize; i++)
+        for (int i = 0; i < TotalSlotCount; i++)
         {
             _slots.Add(new InventorySlotData());
         }
@@ -29,8 +34,10 @@ public class InventorySystem : MonoBehaviour
 
         bool changed = false;
 
-        foreach (InventorySlotData slot in _slots)
+        for (int i = InventoryStartIndex; i < _slots.Count; i++)
         {
+            InventorySlotData slot = _slots[i];
+
             if (slot.Item == item && slot.Quantity < item.MaxStack)
             {
                 int spaceLeft = item.MaxStack - slot.Quantity;
@@ -53,8 +60,10 @@ public class InventorySystem : MonoBehaviour
             }
         }
 
-        foreach (InventorySlotData slot in _slots)
+        for (int i = InventoryStartIndex; i < _slots.Count; i++)
         {
+            InventorySlotData slot = _slots[i];
+
             if (slot.Item == null)
             {
                 int addAmount = Mathf.Min(item.MaxStack, amount);
@@ -94,8 +103,10 @@ public class InventorySystem : MonoBehaviour
 
         bool changed = false;
 
-        foreach (InventorySlotData slot in _slots)
+        for (int i = InventoryStartIndex; i < _slots.Count; i++)
         {
+            InventorySlotData slot = _slots[i];
+
             if (slot.Item == item)
             {
                 int removeAmount = Mathf.Min(slot.Quantity, amount);
@@ -120,6 +131,39 @@ public class InventorySystem : MonoBehaviour
                     NotifyInventoryChanged();
                     return true;
                 }
+            }
+        }
+
+        for (int i = 0; i < InventoryStartIndex; i++)
+        {
+            InventorySlotData slot = _slots[i];
+
+            if (slot.Item != item)
+            {
+                continue;
+            }
+
+            int removeAmount = Mathf.Min(slot.Quantity, amount);
+
+            if (removeAmount <= 0)
+            {
+                continue;
+            }
+
+            slot.Quantity -= removeAmount;
+            amount -= removeAmount;
+            changed = true;
+
+            if (slot.Quantity <= 0)
+            {
+                slot.Item = null;
+                slot.Quantity = 0;
+            }
+
+            if (amount <= 0)
+            {
+                NotifyInventoryChanged();
+                return true;
             }
         }
 

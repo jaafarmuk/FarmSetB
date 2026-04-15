@@ -8,8 +8,10 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [SerializeField] private Image _slotBackground;
     [SerializeField] private Image _itemIcon;
     [SerializeField] private TextMeshProUGUI _quantityText;
+    [SerializeField] private TextMeshProUGUI _itemLabelText;
     [SerializeField] private Color _normalColor = Color.white;
     [SerializeField] private Color _hoverColor = new Color(0.75f, 0.75f, 0.75f, 1f);
+    [SerializeField] private Color _selectedColor = new Color(0.93f, 0.82f, 0.42f, 1f);
 
     private InventoryUI _inventoryUI;
     private Canvas _dragCanvas;
@@ -18,6 +20,7 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private int _slotIndex;
     private bool _isDragging;
     private bool _wasDroppedOnValidSlot;
+    private bool _isSelected;
 
     private Transform _originalIconParent;
     private Vector2 _originalIconAnchoredPosition;
@@ -44,6 +47,21 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         _dragCanvas = inventoryUI != null ? inventoryUI.DragCanvas : GetComponentInParent<Canvas>();
     }
 
+    public void ConfigureRuntimeReferences(Image slotBackground, Image itemIcon, TextMeshProUGUI quantityText, TextMeshProUGUI itemLabelText)
+    {
+        _slotBackground = slotBackground;
+        _itemIcon = itemIcon;
+        _quantityText = quantityText;
+        _itemLabelText = itemLabelText;
+        ApplyCurrentBackgroundColor();
+    }
+
+    public void SetSelected(bool isSelected)
+    {
+        _isSelected = isSelected;
+        ApplyCurrentBackgroundColor();
+    }
+
     public void SetSlot(ItemData item, int quantity)
     {
         _item = item;
@@ -54,12 +72,16 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             _itemIcon.enabled = false;
             _itemIcon.sprite = null;
             _quantityText.text = "";
+            UpdateItemLabel(string.Empty, false);
             return;
         }
 
-        _itemIcon.enabled = true;
+        bool hasIcon = item.Icon != null;
+        bool shouldShowLabel = !hasIcon || IsGeneratedHotbarItem(item);
+        _itemIcon.enabled = hasIcon;
         _itemIcon.sprite = item.Icon;
         _quantityText.text = quantity > 1 ? quantity.ToString() : "";
+        UpdateItemLabel(GetShortLabel(item.ItemName), shouldShowLabel);
     }
 
     public void OnBeginDrag(PointerEventData eventData)
@@ -153,7 +175,7 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        ApplyBackgroundColor(_normalColor);
+        ApplyCurrentBackgroundColor();
     }
 
     private void BeginIconDrag(PointerEventData eventData)
@@ -246,6 +268,47 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         _slotBackground.color = color;
+    }
+
+    private void ApplyCurrentBackgroundColor()
+    {
+        ApplyBackgroundColor(_isSelected ? _selectedColor : _normalColor);
+    }
+
+    private void UpdateItemLabel(string labelText, bool isVisible)
+    {
+        if (_itemLabelText == null)
+        {
+            return;
+        }
+
+        _itemLabelText.text = isVisible ? labelText : string.Empty;
+        _itemLabelText.enabled = isVisible;
+    }
+
+    private static string GetShortLabel(string itemName)
+    {
+        if (string.IsNullOrWhiteSpace(itemName))
+        {
+            return string.Empty;
+        }
+
+        string[] words = itemName.Split(' ');
+
+        if (words.Length >= 2)
+        {
+            return $"{char.ToUpperInvariant(words[0][0])}{char.ToUpperInvariant(words[1][0])}";
+        }
+
+        string trimmedName = itemName.Trim();
+        return trimmedName.Length <= 3 ? trimmedName.ToUpperInvariant() : trimmedName.Substring(0, 3).ToUpperInvariant();
+    }
+
+    private static bool IsGeneratedHotbarItem(ItemData item)
+    {
+        return item != null &&
+               !string.IsNullOrWhiteSpace(item.ItemId) &&
+               (item.ItemId.StartsWith("tool_") || item.ItemId.StartsWith("crop_"));
     }
 
     private void RegisterValidSlotDrop()
