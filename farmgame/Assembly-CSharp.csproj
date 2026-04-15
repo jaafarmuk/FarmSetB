@@ -54,6 +54,7 @@
     <Compile Include="Assets\Scripts\FarmingTools\HeldItemUI.cs" />
     <Compile Include="Assets\Scripts\FarmingTools\ItemSourceDragUI.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmToolType.cs" />
+    <Compile Include="Assets\Scripts\FarmGrid\FarmCropDefinition.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmGridCellData.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmTileState.cs" />
     <Compile Include="Assets\Scripts\FarmingTools\HeldItemSystem.cs" />
