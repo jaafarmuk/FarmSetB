@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class InventoryUI : MonoBehaviour
@@ -9,65 +10,58 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private GameObject _inventoryPanel;
     [SerializeField] private Transform _inventorySlotsContainer;
     [SerializeField] private Transform _hotbarSlotsContainer;
-    [SerializeField] private Transform _slotsContainer;
     [SerializeField] private InventorySlotUI _slotPrefab;
-    [SerializeField] private Canvas _dragCanvas;
     [SerializeField] private KeyCode _toggleInventoryKey = KeyCode.E;
 
-    private readonly List<InventorySlotUI> _slotUIs = new List<InventorySlotUI>();
+    private readonly List<InventorySlotUI> _slotUis = new List<InventorySlotUI>();
+    private Canvas _canvas;
     private int _dragSourceIndex = -1;
-    private HotbarController _hotbarController;
 
-    public Canvas DragCanvas => _dragCanvas;
-    private bool IsDraggingSlot => _dragSourceIndex >= 0;
+    public Canvas DragCanvas => _canvas;
 
     private void Awake()
     {
         if (_inventorySystem == null)
         {
-            _inventorySystem = Object.FindAnyObjectByType<InventorySystem>();
+            _inventorySystem = GetComponent<InventorySystem>();
         }
 
-        if (_dragCanvas == null)
+        if (_inventorySystem == null)
         {
-            _dragCanvas = GetComponentInParent<Canvas>();
+            _inventorySystem = UnityEngine.Object.FindAnyObjectByType<InventorySystem>();
         }
 
-        if (_dragCanvas == null)
+        _canvas = GetComponentInParent<Canvas>();
+
+        if (_canvas == null)
         {
-            _dragCanvas = Object.FindAnyObjectByType<Canvas>();
+            _canvas = CreateCanvas();
         }
 
-        _hotbarController = Object.FindAnyObjectByType<HotbarController>();
-        EnsureUiReferences();
+        EnsureEventSystem();
+        EnsureLayout();
     }
 
     private void OnEnable()
     {
-        if (_inventorySystem != null)
+        if (_inventorySystem == null)
         {
-            _inventorySystem.InventoryChanged += HandleInventoryChanged;
+            return;
         }
 
-        if (_hotbarController != null)
-        {
-            _hotbarController.SelectedSlotChanged += HandleSelectedHotbarSlotChanged;
-        }
+        _inventorySystem.InventoryChanged += RefreshUI;
+        _inventorySystem.HotbarSelectionChanged += HandleHotbarSelectionChanged;
     }
 
     private void OnDisable()
     {
-        if (_inventorySystem != null)
+        if (_inventorySystem == null)
         {
-            _inventorySystem.InventoryChanged -= HandleInventoryChanged;
+            return;
         }
 
-        if (_hotbarController != null)
-        {
-            _hotbarController.SelectedSlotChanged -= HandleSelectedHotbarSlotChanged;
-        }
-
-        _dragSourceIndex = -1;
+        _inventorySystem.InventoryChanged -= RefreshUI;
+        _inventorySystem.HotbarSelectionChanged -= HandleHotbarSelectionChanged;
     }
 
     private void Start()
@@ -79,127 +73,13 @@ public class InventoryUI : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(_toggleInventoryKey) && !IsDraggingSlot)
-        {
-            SetInventoryVisible(!IsInventoryVisible());
-        }
-    }
-
-    private void EnsureUiReferences()
-    {
-        if (_inventorySlotsContainer == null && _slotsContainer != null)
-        {
-            _inventorySlotsContainer = _slotsContainer;
-        }
-
-        if (_inventoryPanel == null && (_inventorySlotsContainer != null || _slotsContainer != null))
-        {
-            Transform panelTransform = _inventorySlotsContainer != null ? _inventorySlotsContainer.parent : _slotsContainer.parent;
-            _inventoryPanel = panelTransform != null ? panelTransform.gameObject : gameObject;
-        }
-
-        if (_dragCanvas == null)
-        {
-            return;
-        }
-
-        if (_inventoryPanel == null || _inventorySlotsContainer == null)
-        {
-            CreateInventoryPanel();
-        }
-
-        if (_hotbarSlotsContainer == null)
-        {
-            CreateHotbarPanel();
-        }
-    }
-
-    private void CreateSlots()
-    {
-        if (_inventorySystem == null || (_inventorySlotsContainer == null && _hotbarSlotsContainer == null))
-        {
-            return;
-        }
-
-        if (_slotUIs.Count > 0)
-        {
-            return;
-        }
-
-        int totalSlots = _inventorySystem.TotalSlotCount;
-        EnsureSlotUiCapacity(totalSlots);
-
-        for (int i = 0; i < _inventorySystem.HotbarSize; i++)
-        {
-            if (_hotbarSlotsContainer == null)
-            {
-                break;
-            }
-
-            CreateSlotUi(i, _hotbarSlotsContainer);
-        }
-
-        for (int i = _inventorySystem.InventoryStartIndex; i < totalSlots; i++)
-        {
-            Transform parent = _inventorySlotsContainer != null ? _inventorySlotsContainer : _hotbarSlotsContainer;
-
-            if (parent == null)
-            {
-                break;
-            }
-
-            CreateSlotUi(i, parent);
-        }
-    }
-
-    private void CreateSlotUi(int slotIndex, Transform parent)
-    {
-        InventorySlotUI slotUI = _slotPrefab != null
-            ? Instantiate(_slotPrefab, parent)
-            : CreateRuntimeSlot(parent);
-
-        slotUI.Setup(this, slotIndex);
-        _slotUIs[slotIndex] = slotUI;
-    }
-
-    private void HandleInventoryChanged()
-    {
-        if (IsDraggingSlot)
-        {
-            return;
-        }
-
-        RefreshUI();
-    }
-
-    private void HandleSelectedHotbarSlotChanged(int slotIndex)
-    {
-        RefreshHotbarSelection();
-    }
-
-    public void RefreshUI()
-    {
         if (_inventorySystem == null)
         {
             return;
         }
 
-        List<InventorySlotData> slots = _inventorySystem.GetSlots();
-        int count = Mathf.Min(slots.Count, _slotUIs.Count);
-
-        for (int i = 0; i < count; i++)
-        {
-            InventorySlotUI slotUI = _slotUIs[i];
-
-            if (slotUI == null)
-            {
-                continue;
-            }
-
-            slotUI.SetSlot(slots[i].Item, slots[i].Quantity);
-        }
-
-        RefreshHotbarSelection();
+        HandleInventoryToggleInput();
+        HandleHotbarInput();
     }
 
     public void BeginSlotDrag(int slotIndex)
@@ -207,42 +87,20 @@ public class InventoryUI : MonoBehaviour
         _dragSourceIndex = slotIndex;
     }
 
-    public void HandleSlotDrop(int fromIndex, int toIndex)
-    {
-        if (_inventorySystem == null)
-        {
-            return;
-        }
-
-        _inventorySystem.MoveOrSwapItem(fromIndex, toIndex);
-    }
-
-    public bool HandleSourceDrop(int slotIndex, ItemData item, int amount, out int amountRemaining)
-    {
-        amountRemaining = amount;
-
-        if (_inventorySystem == null)
-        {
-            return false;
-        }
-
-        return _inventorySystem.TryAddToSlot(slotIndex, item, amount, out amountRemaining);
-    }
-
-    public void HandleSlotDropOutside(int slotIndex)
-    {
-        if (_inventorySystem == null)
-        {
-            return;
-        }
-
-        _inventorySystem.DropItemFromSlot(slotIndex);
-    }
-
     public void EndSlotDrag()
     {
         _dragSourceIndex = -1;
         RefreshUI();
+    }
+
+    public void HandleSlotDrop(int fromIndex, int toIndex)
+    {
+        _inventorySystem?.MoveOrSwapItem(fromIndex, toIndex);
+    }
+
+    public void HandleSlotDropOutside(int slotIndex)
+    {
+        _inventorySystem?.ClearSlot(slotIndex);
     }
 
     public void HandleSlotClicked(int slotIndex)
@@ -252,53 +110,142 @@ public class InventoryUI : MonoBehaviour
             return;
         }
 
-        if (_hotbarController == null)
-        {
-            _hotbarController = Object.FindAnyObjectByType<HotbarController>();
-        }
+        _inventorySystem.SelectHotbarSlot(slotIndex);
+    }
 
-        if (_hotbarController == null)
+    public void RefreshUI()
+    {
+        if (_inventorySystem == null)
         {
             return;
         }
 
-        _hotbarController.SelectSlot(slotIndex);
+        IReadOnlyList<InventorySlotData> slots = _inventorySystem.Slots;
+        int count = Mathf.Min(slots.Count, _slotUis.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            InventorySlotUI slotUi = _slotUis[i];
+
+            if (slotUi == null)
+            {
+                continue;
+            }
+
+            InventorySlotData slot = slots[i];
+            slotUi.SetSlot(slot.Item, slot.Quantity);
+            slotUi.SetSelected(i < _inventorySystem.HotbarSize && i == _inventorySystem.SelectedHotbarSlotIndex);
+        }
     }
 
-    private void EnsureSlotUiCapacity(int totalSlots)
+    private void HandleHotbarSelectionChanged(int selectedSlotIndex)
     {
-        while (_slotUIs.Count < totalSlots)
+        RefreshUI();
+    }
+
+    private void HandleInventoryToggleInput()
+    {
+        if (_dragSourceIndex < 0 && Input.GetKeyDown(_toggleInventoryKey))
         {
-            _slotUIs.Add(null);
+            SetInventoryVisible(!IsInventoryVisible());
+        }
+    }
+
+    private void HandleHotbarInput()
+    {
+        for (int i = 0; i < _inventorySystem.HotbarSize; i++)
+        {
+            KeyCode keyCode = (KeyCode)((int)KeyCode.Alpha1 + i);
+
+            if (Input.GetKeyDown(keyCode))
+            {
+                _inventorySystem.SelectHotbarSlot(i);
+            }
+        }
+
+        float scrollAmount = Input.mouseScrollDelta.y;
+
+        if (!Mathf.Approximately(scrollAmount, 0f))
+        {
+            _inventorySystem.SelectNextHotbarSlot(scrollAmount > 0f ? -1 : 1);
+        }
+    }
+
+    private void CreateSlots()
+    {
+        if (_inventorySystem == null || _slotUis.Count > 0)
+        {
+            return;
+        }
+
+        EnsureSlotCapacity(_inventorySystem.TotalSlotCount);
+
+        for (int i = 0; i < _inventorySystem.HotbarSize; i++)
+        {
+            _slotUis[i] = CreateSlotUi(i, _hotbarSlotsContainer);
+        }
+
+        for (int i = _inventorySystem.InventoryStartIndex; i < _inventorySystem.TotalSlotCount; i++)
+        {
+            _slotUis[i] = CreateSlotUi(i, _inventorySlotsContainer);
+        }
+    }
+
+    private InventorySlotUI CreateSlotUi(int slotIndex, Transform parent)
+    {
+        InventorySlotUI slotUi = _slotPrefab != null
+            ? Instantiate(_slotPrefab, parent)
+            : CreateRuntimeSlot(parent);
+
+        slotUi.Setup(this, slotIndex);
+        return slotUi;
+    }
+
+    private void EnsureLayout()
+    {
+        if (_inventoryPanel == null)
+        {
+            _inventoryPanel = CreatePanel(
+                "InventoryPanel",
+                _canvas.transform,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(452f, 384f),
+                new Color(0.07f, 0.07f, 0.07f, 0.88f));
+        }
+
+        if (_inventorySlotsContainer == null)
+        {
+            _inventorySlotsContainer = CreateSlotContainer("InventorySlots", _inventoryPanel.transform, new Vector2(400f, 320f), 5);
+        }
+
+        if (_hotbarSlotsContainer == null)
+        {
+            GameObject hotbarPanel = CreatePanel(
+                "HotbarPanel",
+                _canvas.transform,
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f),
+                new Vector2(664f, 104f),
+                new Color(0.07f, 0.07f, 0.07f, 0.8f));
+
+            RectTransform panelRect = hotbarPanel.GetComponent<RectTransform>();
+            panelRect.anchoredPosition = new Vector2(0f, 24f);
+            _hotbarSlotsContainer = CreateSlotContainer("HotbarSlots", hotbarPanel.transform, new Vector2(632f, 72f), 8);
+        }
+    }
+
+    private void EnsureSlotCapacity(int totalSlots)
+    {
+        while (_slotUis.Count < totalSlots)
+        {
+            _slotUis.Add(null);
         }
     }
 
     private bool IsInventoryVisible()
     {
         return _inventoryPanel != null && _inventoryPanel.activeSelf;
-    }
-
-    private void RefreshHotbarSelection()
-    {
-        if (_hotbarController == null)
-        {
-            _hotbarController = Object.FindAnyObjectByType<HotbarController>();
-        }
-
-        int selectedSlotIndex = _hotbarController != null ? _hotbarController.SelectedSlotIndex : -1;
-        int hotbarSize = _inventorySystem != null ? _inventorySystem.HotbarSize : 0;
-
-        for (int i = 0; i < _slotUIs.Count; i++)
-        {
-            InventorySlotUI slotUI = _slotUIs[i];
-
-            if (slotUI == null)
-            {
-                continue;
-            }
-
-            slotUI.SetSelected(i < hotbarSize && i == selectedSlotIndex);
-        }
     }
 
     private void SetInventoryVisible(bool isVisible)
@@ -309,51 +256,29 @@ public class InventoryUI : MonoBehaviour
         }
     }
 
-    private void CreateInventoryPanel()
+    private static Canvas CreateCanvas()
     {
-        GameObject panelObject = CreatePanel(
-            "InventoryPanel",
-            _dragCanvas.transform,
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0f, 0f),
-            new Vector2(452f, 384f),
-            new Color(0.07f, 0.07f, 0.07f, 0.88f));
+        GameObject canvasObject = new GameObject("InventoryCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        Canvas canvas = canvasObject.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
-        _inventoryPanel = panelObject;
-        _inventorySlotsContainer = CreateSlotContainer(
-            "InventorySlots",
-            panelObject.transform,
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            Vector2.zero,
-            new Vector2(400f, 320f),
-            5);
+        CanvasScaler canvasScaler = canvasObject.GetComponent<CanvasScaler>();
+        canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        canvasScaler.referenceResolution = new Vector2(1920f, 1080f);
+        canvasScaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        canvasScaler.matchWidthOrHeight = 0.5f;
+
+        return canvas;
     }
 
-    private void CreateHotbarPanel()
+    private static void EnsureEventSystem()
     {
-        GameObject panelObject = CreatePanel(
-            "HotbarPanel",
-            _dragCanvas.transform,
-            new Vector2(0.5f, 0f),
-            new Vector2(0.5f, 0f),
-            new Vector2(0.5f, 0f),
-            new Vector2(0f, 24f),
-            new Vector2(664f, 104f),
-            new Color(0.07f, 0.07f, 0.07f, 0.8f));
+        if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null)
+        {
+            return;
+        }
 
-        _hotbarSlotsContainer = CreateSlotContainer(
-            "HotbarSlots",
-            panelObject.transform,
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
-            Vector2.zero,
-            new Vector2(632f, 72f),
-            8);
+        new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
     }
 
     private static GameObject CreatePanel(
@@ -361,8 +286,6 @@ public class InventoryUI : MonoBehaviour
         Transform parent,
         Vector2 anchorMin,
         Vector2 anchorMax,
-        Vector2 pivot,
-        Vector2 anchoredPosition,
         Vector2 sizeDelta,
         Color color)
     {
@@ -372,34 +295,24 @@ public class InventoryUI : MonoBehaviour
         RectTransform rectTransform = panelObject.GetComponent<RectTransform>();
         rectTransform.anchorMin = anchorMin;
         rectTransform.anchorMax = anchorMax;
-        rectTransform.pivot = pivot;
-        rectTransform.anchoredPosition = anchoredPosition;
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
         rectTransform.sizeDelta = sizeDelta;
 
-        Image panelImage = panelObject.GetComponent<Image>();
-        panelImage.color = color;
+        Image image = panelObject.GetComponent<Image>();
+        image.color = color;
 
         return panelObject;
     }
 
-    private static Transform CreateSlotContainer(
-        string objectName,
-        Transform parent,
-        Vector2 anchorMin,
-        Vector2 anchorMax,
-        Vector2 pivot,
-        Vector2 anchoredPosition,
-        Vector2 sizeDelta,
-        int columns)
+    private static Transform CreateSlotContainer(string objectName, Transform parent, Vector2 sizeDelta, int columns)
     {
         GameObject containerObject = new GameObject(objectName, typeof(RectTransform), typeof(GridLayoutGroup));
         containerObject.transform.SetParent(parent, false);
 
         RectTransform rectTransform = containerObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = anchorMin;
-        rectTransform.anchorMax = anchorMax;
-        rectTransform.pivot = pivot;
-        rectTransform.anchoredPosition = anchoredPosition;
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
         rectTransform.sizeDelta = sizeDelta;
 
         GridLayoutGroup gridLayout = containerObject.GetComponent<GridLayoutGroup>();
@@ -422,8 +335,7 @@ public class InventoryUI : MonoBehaviour
         slotRectTransform.sizeDelta = new Vector2(72f, 72f);
 
         Image slotBackground = slotObject.GetComponent<Image>();
-        slotBackground.color = new Color(0.74f, 0.74f, 0.74f, 1f);
-        slotBackground.raycastTarget = true;
+        slotBackground.color = Color.white;
 
         Outline outline = slotObject.GetComponent<Outline>();
         outline.effectColor = new Color(0.17f, 0.17f, 0.17f, 1f);
@@ -436,23 +348,22 @@ public class InventoryUI : MonoBehaviour
         iconRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
         iconRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
         iconRectTransform.pivot = new Vector2(0.5f, 0.5f);
-        iconRectTransform.anchoredPosition = Vector2.zero;
         iconRectTransform.sizeDelta = new Vector2(40f, 40f);
 
         Image itemIcon = iconObject.GetComponent<Image>();
         itemIcon.raycastTarget = false;
 
-        GameObject textObject = new GameObject("QuantityText", typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(slotObject.transform, false);
+        GameObject quantityObject = new GameObject("QuantityText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        quantityObject.transform.SetParent(slotObject.transform, false);
 
-        RectTransform textRectTransform = textObject.GetComponent<RectTransform>();
-        textRectTransform.anchorMin = new Vector2(1f, 0f);
-        textRectTransform.anchorMax = new Vector2(1f, 0f);
-        textRectTransform.pivot = new Vector2(1f, 0f);
-        textRectTransform.anchoredPosition = new Vector2(-4f, 4f);
-        textRectTransform.sizeDelta = new Vector2(28f, 20f);
+        RectTransform quantityRect = quantityObject.GetComponent<RectTransform>();
+        quantityRect.anchorMin = new Vector2(1f, 0f);
+        quantityRect.anchorMax = new Vector2(1f, 0f);
+        quantityRect.pivot = new Vector2(1f, 0f);
+        quantityRect.anchoredPosition = new Vector2(-4f, 4f);
+        quantityRect.sizeDelta = new Vector2(28f, 20f);
 
-        TextMeshProUGUI quantityText = textObject.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI quantityText = quantityObject.GetComponent<TextMeshProUGUI>();
         quantityText.font = TMP_Settings.defaultFontAsset;
         quantityText.fontSize = 18f;
         quantityText.alignment = TextAlignmentOptions.BottomRight;
@@ -461,23 +372,22 @@ public class InventoryUI : MonoBehaviour
         GameObject labelObject = new GameObject("ItemLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
         labelObject.transform.SetParent(slotObject.transform, false);
 
-        RectTransform labelRectTransform = labelObject.GetComponent<RectTransform>();
-        labelRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        labelRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        labelRectTransform.pivot = new Vector2(0.5f, 0.5f);
-        labelRectTransform.anchoredPosition = Vector2.zero;
-        labelRectTransform.sizeDelta = new Vector2(52f, 22f);
+        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot = new Vector2(0.5f, 0.5f);
+        labelRect.sizeDelta = new Vector2(52f, 22f);
 
-        TextMeshProUGUI itemLabelText = labelObject.GetComponent<TextMeshProUGUI>();
-        itemLabelText.font = TMP_Settings.defaultFontAsset;
-        itemLabelText.fontSize = 18f;
-        itemLabelText.alignment = TextAlignmentOptions.Center;
-        itemLabelText.raycastTarget = false;
-        itemLabelText.color = new Color(0.12f, 0.12f, 0.12f, 1f);
-        itemLabelText.enabled = false;
+        TextMeshProUGUI labelText = labelObject.GetComponent<TextMeshProUGUI>();
+        labelText.font = TMP_Settings.defaultFontAsset;
+        labelText.fontSize = 18f;
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.color = new Color(0.12f, 0.12f, 0.12f, 1f);
+        labelText.raycastTarget = false;
+        labelText.enabled = false;
 
-        InventorySlotUI slotUI = slotObject.GetComponent<InventorySlotUI>();
-        slotUI.ConfigureRuntimeReferences(slotBackground, itemIcon, quantityText, itemLabelText);
-        return slotUI;
+        InventorySlotUI slotUi = slotObject.GetComponent<InventorySlotUI>();
+        slotUi.ConfigureRuntimeReferences(slotBackground, itemIcon, quantityText, labelText);
+        return slotUi;
     }
 }

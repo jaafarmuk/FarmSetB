@@ -3,7 +3,14 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+public class InventorySlotUI : MonoBehaviour,
+    IBeginDragHandler,
+    IDragHandler,
+    IEndDragHandler,
+    IDropHandler,
+    IPointerClickHandler,
+    IPointerEnterHandler,
+    IPointerExitHandler
 {
     [SerializeField] private Image _slotBackground;
     [SerializeField] private Image _itemIcon;
@@ -13,38 +20,36 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [SerializeField] private Color _hoverColor = new Color(0.75f, 0.75f, 0.75f, 1f);
     [SerializeField] private Color _selectedColor = new Color(0.93f, 0.82f, 0.42f, 1f);
 
-    private InventoryUI _inventoryUI;
-    private Canvas _dragCanvas;
+    private InventoryUI _inventoryUi;
     private ItemData _item;
     private int _quantity;
     private int _slotIndex;
     private bool _isDragging;
-    private bool _wasDroppedOnValidSlot;
     private bool _isSelected;
+    private bool _wasDroppedOnSlot;
 
-    private Transform _originalIconParent;
-    private Vector2 _originalIconAnchoredPosition;
-    private Vector2 _originalIconAnchorMin;
-    private Vector2 _originalIconAnchorMax;
-    private Vector2 _originalIconPivot;
-    private Vector2 _originalIconSizeDelta;
-    private Vector3 _originalIconLocalScale;
-    private int _originalIconSiblingIndex;
-    private bool _originalIconRaycastTarget;
+    private Transform _originalParent;
+    private Vector2 _originalAnchoredPosition;
+    private Vector2 _originalAnchorMin;
+    private Vector2 _originalAnchorMax;
+    private Vector2 _originalPivot;
+    private Vector2 _originalSizeDelta;
+    private Vector3 _originalScale;
+    private int _originalSiblingIndex;
+    private bool _originalRaycastTarget;
 
     public int SlotIndex => _slotIndex;
     public bool HasItem => _item != null && _quantity > 0;
 
     private void Awake()
     {
-        ApplyBackgroundColor(_normalColor);
+        ApplyCurrentBackgroundColor();
     }
 
-    public void Setup(InventoryUI inventoryUI, int slotIndex)
+    public void Setup(InventoryUI inventoryUi, int slotIndex)
     {
-        _inventoryUI = inventoryUI;
+        _inventoryUi = inventoryUi;
         _slotIndex = slotIndex;
-        _dragCanvas = inventoryUI != null ? inventoryUI.DragCanvas : GetComponentInParent<Canvas>();
     }
 
     public void ConfigureRuntimeReferences(Image slotBackground, Image itemIcon, TextMeshProUGUI quantityText, TextMeshProUGUI itemLabelText)
@@ -56,115 +61,100 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         ApplyCurrentBackgroundColor();
     }
 
+    public void SetSlot(ItemData item, int quantity)
+    {
+        _item = item;
+        _quantity = quantity;
+
+        if (!HasItem)
+        {
+            _itemIcon.enabled = false;
+            _itemIcon.sprite = null;
+            _quantityText.text = string.Empty;
+            SetLabel(string.Empty, false);
+            return;
+        }
+
+        bool hasIcon = item.Icon != null;
+        _itemIcon.enabled = hasIcon;
+        _itemIcon.sprite = item.Icon;
+        _quantityText.text = quantity > 1 ? quantity.ToString() : string.Empty;
+        SetLabel(GetShortLabel(item.ItemName), !hasIcon);
+    }
+
     public void SetSelected(bool isSelected)
     {
         _isSelected = isSelected;
         ApplyCurrentBackgroundColor();
     }
 
-    public void SetSlot(ItemData item, int quantity)
-    {
-        _item = item;
-        _quantity = quantity;
-
-        if (item == null || quantity <= 0)
-        {
-            _itemIcon.enabled = false;
-            _itemIcon.sprite = null;
-            _quantityText.text = "";
-            UpdateItemLabel(string.Empty, false);
-            return;
-        }
-
-        bool hasIcon = item.Icon != null;
-        bool shouldShowLabel = !hasIcon || IsGeneratedHotbarItem(item);
-        _itemIcon.enabled = hasIcon;
-        _itemIcon.sprite = item.Icon;
-        _quantityText.text = quantity > 1 ? quantity.ToString() : "";
-        UpdateItemLabel(GetShortLabel(item.ItemName), shouldShowLabel);
-    }
-
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (eventData.button != PointerEventData.InputButton.Left)
+        if (eventData.button != PointerEventData.InputButton.Left || !HasItem || _inventoryUi == null || _itemIcon == null)
         {
             return;
         }
 
-        if (_inventoryUI == null || !HasItem || _itemIcon == null)
+        Canvas dragCanvas = _inventoryUi.DragCanvas;
+
+        if (dragCanvas == null)
         {
             return;
         }
 
-        if (_dragCanvas == null)
-        {
-            _dragCanvas = _inventoryUI.DragCanvas;
-        }
-
-        if (_dragCanvas == null)
-        {
-            return;
-        }
-
-        _inventoryUI.BeginSlotDrag(_slotIndex);
-        _wasDroppedOnValidSlot = false;
-        BeginIconDrag(eventData);
+        _inventoryUi.BeginSlotDrag(_slotIndex);
+        _wasDroppedOnSlot = false;
+        BeginDragVisual(dragCanvas, eventData);
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (!_isDragging)
+        if (!_isDragging || _inventoryUi == null || _itemIcon == null)
         {
             return;
         }
 
-        UpdateDraggedIconPosition(eventData);
+        UpdateDraggedIconPosition(_inventoryUi.DragCanvas, eventData);
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        RestoreIconToSlot();
+        RestoreDraggedIcon();
 
-        if (_inventoryUI != null)
+        if (_inventoryUi != null)
         {
-            if (!_wasDroppedOnValidSlot)
+            if (!_wasDroppedOnSlot)
             {
-                _inventoryUI.HandleSlotDropOutside(_slotIndex);
+                _inventoryUi.HandleSlotDropOutside(_slotIndex);
             }
 
-            _inventoryUI.EndSlotDrag();
+            _inventoryUi.EndSlotDrag();
         }
-
-        _wasDroppedOnValidSlot = false;
     }
 
     public void OnDrop(PointerEventData eventData)
     {
-        if (_inventoryUI == null || eventData.pointerDrag == null)
+        if (_inventoryUi == null || eventData.pointerDrag == null)
         {
             return;
         }
 
-        ItemSourceDragUI sourceDragUI = eventData.pointerDrag.GetComponent<ItemSourceDragUI>();
+        InventorySlotUI sourceSlot = eventData.pointerDrag.GetComponent<InventorySlotUI>();
 
-        if (sourceDragUI != null)
+        if (sourceSlot == null)
         {
-            bool dropSucceeded = _inventoryUI.HandleSourceDrop(_slotIndex, sourceDragUI.SourceItem, sourceDragUI.DraggedAmount, out int amountRemaining);
-
-            if (dropSucceeded)
-            {
-                sourceDragUI.RegisterValidDrop(amountRemaining);
-            }
-
             return;
         }
 
-        InventorySlotUI sourceSlotUI = eventData.pointerDrag.GetComponent<InventorySlotUI>();
+        sourceSlot._wasDroppedOnSlot = true;
+        _inventoryUi.HandleSlotDrop(sourceSlot.SlotIndex, _slotIndex);
+    }
 
-        if (sourceSlotUI != null)
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData.button == PointerEventData.InputButton.Left && !_isDragging)
         {
-            sourceSlotUI.RegisterValidSlotDrop();
-            _inventoryUI.HandleSlotDrop(sourceSlotUI.SlotIndex, _slotIndex);
+            _inventoryUi?.HandleSlotClicked(_slotIndex);
         }
     }
 
@@ -178,36 +168,21 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         ApplyCurrentBackgroundColor();
     }
 
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (eventData.button != PointerEventData.InputButton.Left || _inventoryUI == null)
-        {
-            return;
-        }
-
-        if (_isDragging)
-        {
-            return;
-        }
-
-        _inventoryUI.HandleSlotClicked(_slotIndex);
-    }
-
-    private void BeginIconDrag(PointerEventData eventData)
+    private void BeginDragVisual(Canvas dragCanvas, PointerEventData eventData)
     {
         RectTransform iconRect = _itemIcon.rectTransform;
 
-        _originalIconParent = iconRect.parent;
-        _originalIconAnchoredPosition = iconRect.anchoredPosition;
-        _originalIconAnchorMin = iconRect.anchorMin;
-        _originalIconAnchorMax = iconRect.anchorMax;
-        _originalIconPivot = iconRect.pivot;
-        _originalIconSizeDelta = iconRect.sizeDelta;
-        _originalIconLocalScale = iconRect.localScale;
-        _originalIconSiblingIndex = iconRect.GetSiblingIndex();
-        _originalIconRaycastTarget = _itemIcon.raycastTarget;
+        _originalParent = iconRect.parent;
+        _originalAnchoredPosition = iconRect.anchoredPosition;
+        _originalAnchorMin = iconRect.anchorMin;
+        _originalAnchorMax = iconRect.anchorMax;
+        _originalPivot = iconRect.pivot;
+        _originalSizeDelta = iconRect.sizeDelta;
+        _originalScale = iconRect.localScale;
+        _originalSiblingIndex = iconRect.GetSiblingIndex();
+        _originalRaycastTarget = _itemIcon.raycastTarget;
 
-        iconRect.SetParent(_dragCanvas.transform, true);
+        iconRect.SetParent(dragCanvas.transform, true);
         iconRect.SetAsLastSibling();
         iconRect.anchorMin = new Vector2(0.5f, 0.5f);
         iconRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -215,25 +190,21 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         _itemIcon.raycastTarget = false;
         _isDragging = true;
+        _quantityText.text = string.Empty;
 
-        if (_quantityText != null)
-        {
-            _quantityText.text = string.Empty;
-        }
-
-        UpdateDraggedIconPosition(eventData);
+        UpdateDraggedIconPosition(dragCanvas, eventData);
     }
 
-    private void UpdateDraggedIconPosition(PointerEventData eventData)
+    private void UpdateDraggedIconPosition(Canvas dragCanvas, PointerEventData eventData)
     {
-        if (_dragCanvas == null || _itemIcon == null)
+        if (dragCanvas == null || _itemIcon == null)
         {
             return;
         }
 
-        RectTransform canvasRect = _dragCanvas.transform as RectTransform;
+        RectTransform canvasRect = dragCanvas.transform as RectTransform;
         RectTransform iconRect = _itemIcon.rectTransform;
-        Camera eventCamera = _dragCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : eventData.pressEventCamera;
+        Camera eventCamera = dragCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : eventData.pressEventCamera;
 
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, eventData.position, eventCamera, out Vector2 localPoint))
         {
@@ -241,48 +212,28 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
     }
 
-    private void RestoreIconToSlot()
+    private void RestoreDraggedIcon()
     {
-        if (!_isDragging || _itemIcon == null || _originalIconParent == null)
+        if (!_isDragging || _itemIcon == null || _originalParent == null)
         {
             return;
         }
 
         RectTransform iconRect = _itemIcon.rectTransform;
 
-        iconRect.SetParent(_originalIconParent, false);
-        iconRect.SetSiblingIndex(_originalIconSiblingIndex);
-        iconRect.anchorMin = _originalIconAnchorMin;
-        iconRect.anchorMax = _originalIconAnchorMax;
-        iconRect.pivot = _originalIconPivot;
-        iconRect.sizeDelta = _originalIconSizeDelta;
-        iconRect.localScale = _originalIconLocalScale;
-        iconRect.anchoredPosition = _originalIconAnchoredPosition;
+        iconRect.SetParent(_originalParent, false);
+        iconRect.SetSiblingIndex(_originalSiblingIndex);
+        iconRect.anchorMin = _originalAnchorMin;
+        iconRect.anchorMax = _originalAnchorMax;
+        iconRect.pivot = _originalPivot;
+        iconRect.sizeDelta = _originalSizeDelta;
+        iconRect.localScale = _originalScale;
+        iconRect.anchoredPosition = _originalAnchoredPosition;
 
-        _itemIcon.raycastTarget = _originalIconRaycastTarget;
+        _itemIcon.raycastTarget = _originalRaycastTarget;
         _isDragging = false;
-
-        UpdateQuantityTextDisplay();
-    }
-
-    private void UpdateQuantityTextDisplay()
-    {
-        if (_quantityText == null)
-        {
-            return;
-        }
-
         _quantityText.text = _quantity > 1 ? _quantity.ToString() : string.Empty;
-    }
-
-    private void ApplyBackgroundColor(Color color)
-    {
-        if (_slotBackground == null)
-        {
-            return;
-        }
-
-        _slotBackground.color = color;
+        _wasDroppedOnSlot = false;
     }
 
     private void ApplyCurrentBackgroundColor()
@@ -290,15 +241,23 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         ApplyBackgroundColor(_isSelected ? _selectedColor : _normalColor);
     }
 
-    private void UpdateItemLabel(string labelText, bool isVisible)
+    private void ApplyBackgroundColor(Color color)
+    {
+        if (_slotBackground != null)
+        {
+            _slotBackground.color = color;
+        }
+    }
+
+    private void SetLabel(string labelText, bool visible)
     {
         if (_itemLabelText == null)
         {
             return;
         }
 
-        _itemLabelText.text = isVisible ? labelText : string.Empty;
-        _itemLabelText.enabled = isVisible;
+        _itemLabelText.text = visible ? labelText : string.Empty;
+        _itemLabelText.enabled = visible;
     }
 
     private static string GetShortLabel(string itemName)
@@ -317,17 +276,5 @@ public class InventorySlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         string trimmedName = itemName.Trim();
         return trimmedName.Length <= 3 ? trimmedName.ToUpperInvariant() : trimmedName.Substring(0, 3).ToUpperInvariant();
-    }
-
-    private static bool IsGeneratedHotbarItem(ItemData item)
-    {
-        return item != null &&
-               !string.IsNullOrWhiteSpace(item.name) &&
-               item.name.StartsWith("Runtime_");
-    }
-
-    private void RegisterValidSlotDrop()
-    {
-        _wasDroppedOnValidSlot = true;
     }
 }

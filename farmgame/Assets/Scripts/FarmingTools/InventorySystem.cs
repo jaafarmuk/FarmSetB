@@ -6,16 +6,216 @@ public class InventorySystem : MonoBehaviour
 {
     [SerializeField] private int _hotbarSize = 8;
     [SerializeField] private int _inventorySize = 20;
+    [SerializeField] private ItemData[] _startingHotbarItems;
+    [SerializeField] private int _selectedHotbarSlotIndex;
 
     private List<InventorySlotData> _slots;
 
     public event Action InventoryChanged;
-    public int HotbarSize => Mathf.Max(0, _hotbarSize);
+    public event Action<int> HotbarSelectionChanged;
+
+    public int HotbarSize => Mathf.Max(1, _hotbarSize);
     public int InventorySize => Mathf.Max(0, _inventorySize);
     public int InventoryStartIndex => HotbarSize;
     public int TotalSlotCount => HotbarSize + InventorySize;
+    public int SelectedHotbarSlotIndex => Mathf.Clamp(_selectedHotbarSlotIndex, 0, HotbarSize - 1);
+    public ItemData SelectedHotbarItem => TryGetSelectedHotbarItem(out ItemData item) ? item : null;
+    public IReadOnlyList<InventorySlotData> Slots => _slots;
 
     private void Awake()
+    {
+        InitializeSlots();
+        SeedStartingHotbarItems();
+        SelectHotbarSlot(_selectedHotbarSlotIndex, true);
+    }
+
+    public InventorySlotData GetSlot(int slotIndex)
+    {
+        if (!IsValidSlotIndex(slotIndex))
+        {
+            return null;
+        }
+
+        return _slots[slotIndex];
+    }
+
+    public bool AddItem(ItemData item, int amount)
+    {
+        if (!IsValidItemRequest(item, amount))
+        {
+            return false;
+        }
+
+        int amountRemaining = AddToRange(item, amount, InventoryStartIndex, TotalSlotCount);
+
+        if (amountRemaining > 0)
+        {
+            amountRemaining = AddToRange(item, amountRemaining, 0, HotbarSize);
+        }
+
+        if (amountRemaining == amount)
+        {
+            return false;
+        }
+
+        NotifyInventoryChanged();
+        return amountRemaining == 0;
+    }
+
+    public bool RemoveItem(ItemData item, int amount)
+    {
+        if (!IsValidItemRequest(item, amount))
+        {
+            return false;
+        }
+
+        int amountRemaining = RemoveFromRange(item, amount, InventoryStartIndex, TotalSlotCount);
+        amountRemaining = RemoveFromRange(item, amountRemaining, 0, HotbarSize);
+
+        if (amountRemaining == amount)
+        {
+            return false;
+        }
+
+        NotifyInventoryChanged();
+        return amountRemaining == 0;
+    }
+
+    public bool TryAddToSlot(int slotIndex, ItemData item, int amount, out int amountRemaining)
+    {
+        amountRemaining = amount;
+
+        if (!IsValidSlotIndex(slotIndex) || !IsValidItemRequest(item, amount))
+        {
+            return false;
+        }
+
+        InventorySlotData slot = _slots[slotIndex];
+
+        if (!HasItem(slot))
+        {
+            int amountToPlace = Mathf.Min(item.MaxStack, amount);
+            slot.Item = item;
+            slot.Quantity = amountToPlace;
+            amountRemaining = amount - amountToPlace;
+            NotifyInventoryChanged();
+            return true;
+        }
+
+        if (slot.Item != item || slot.Quantity >= item.MaxStack)
+        {
+            return false;
+        }
+
+        int amountToAdd = Mathf.Min(item.MaxStack - slot.Quantity, amount);
+        slot.Quantity += amountToAdd;
+        amountRemaining = amount - amountToAdd;
+        NotifyInventoryChanged();
+        return true;
+    }
+
+    public bool ClearSlot(int slotIndex)
+    {
+        if (!IsValidSlotIndex(slotIndex) || !HasItem(_slots[slotIndex]))
+        {
+            return false;
+        }
+
+        _slots[slotIndex].Item = null;
+        _slots[slotIndex].Quantity = 0;
+        NotifyInventoryChanged();
+        return true;
+    }
+
+    public bool MoveOrSwapItem(int fromIndex, int toIndex)
+    {
+        if (!IsValidSlotIndex(fromIndex) || !IsValidSlotIndex(toIndex) || fromIndex == toIndex)
+        {
+            return false;
+        }
+
+        InventorySlotData fromSlot = _slots[fromIndex];
+        InventorySlotData toSlot = _slots[toIndex];
+
+        if (!HasItem(fromSlot))
+        {
+            return false;
+        }
+
+        if (!HasItem(toSlot))
+        {
+            toSlot.Item = fromSlot.Item;
+            toSlot.Quantity = fromSlot.Quantity;
+            fromSlot.Item = null;
+            fromSlot.Quantity = 0;
+            NotifyInventoryChanged();
+            return true;
+        }
+
+        if (fromSlot.Item == toSlot.Item)
+        {
+            int combinedQuantity = fromSlot.Quantity + toSlot.Quantity;
+
+            if (combinedQuantity <= fromSlot.Item.MaxStack)
+            {
+                toSlot.Quantity = combinedQuantity;
+                fromSlot.Item = null;
+                fromSlot.Quantity = 0;
+            }
+            else
+            {
+                toSlot.Quantity = fromSlot.Item.MaxStack;
+                fromSlot.Quantity = combinedQuantity - fromSlot.Item.MaxStack;
+            }
+
+            NotifyInventoryChanged();
+            return true;
+        }
+
+        ItemData cachedItem = toSlot.Item;
+        int cachedQuantity = toSlot.Quantity;
+
+        toSlot.Item = fromSlot.Item;
+        toSlot.Quantity = fromSlot.Quantity;
+        fromSlot.Item = cachedItem;
+        fromSlot.Quantity = cachedQuantity;
+
+        NotifyInventoryChanged();
+        return true;
+    }
+
+    public bool SelectHotbarSlot(int slotIndex)
+    {
+        return SelectHotbarSlot(slotIndex, false);
+    }
+
+    public bool TryGetSelectedHotbarItem(out ItemData item)
+    {
+        item = null;
+
+        InventorySlotData slot = GetSlot(SelectedHotbarSlotIndex);
+
+        if (!HasItem(slot))
+        {
+            return false;
+        }
+
+        item = slot.Item;
+        return true;
+    }
+
+    public void SelectNextHotbarSlot(int direction)
+    {
+        if (HotbarSize <= 0 || direction == 0)
+        {
+            return;
+        }
+
+        int nextIndex = (SelectedHotbarSlotIndex + direction + HotbarSize) % HotbarSize;
+        SelectHotbarSlot(nextIndex);
+    }
+
+    private void InitializeSlots()
     {
         _slots = new List<InventorySlotData>(TotalSlotCount);
 
@@ -25,116 +225,77 @@ public class InventorySystem : MonoBehaviour
         }
     }
 
-    public bool AddItem(ItemData item, int amount)
+    private void SeedStartingHotbarItems()
     {
-        if (item == null || amount <= 0)
+        if (_startingHotbarItems == null)
         {
-            return false;
+            return;
         }
 
-        bool changed = false;
+        int count = Mathf.Min(_startingHotbarItems.Length, HotbarSize);
 
-        for (int i = InventoryStartIndex; i < _slots.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            InventorySlotData slot = _slots[i];
+            ItemData item = _startingHotbarItems[i];
 
-            if (slot.Item == item && slot.Quantity < item.MaxStack)
+            if (item == null)
             {
-                int spaceLeft = item.MaxStack - slot.Quantity;
-                int addAmount = Mathf.Min(spaceLeft, amount);
-
-                if (addAmount <= 0)
-                {
-                    continue;
-                }
-
-                slot.Quantity += addAmount;
-                amount -= addAmount;
-                changed = true;
-
-                if (amount <= 0)
-                {
-                    NotifyInventoryChanged();
-                    return true;
-                }
+                continue;
             }
-        }
 
-        for (int i = InventoryStartIndex; i < _slots.Count; i++)
-        {
             InventorySlotData slot = _slots[i];
-
-            if (slot.Item == null)
-            {
-                int addAmount = Mathf.Min(item.MaxStack, amount);
-
-                if (addAmount <= 0)
-                {
-                    continue;
-                }
-
-                slot.Item = item;
-                slot.Quantity = addAmount;
-                amount -= addAmount;
-                changed = true;
-
-                if (amount <= 0)
-                {
-                    NotifyInventoryChanged();
-                    return true;
-                }
-            }
+            slot.Item = item;
+            slot.Quantity = 1;
         }
-
-        if (changed)
-        {
-            NotifyInventoryChanged();
-        }
-
-        return false;
     }
 
-    public bool RemoveItem(ItemData item, int amount)
+    private int AddToRange(ItemData item, int amount, int startIndex, int endIndex)
     {
-        if (item == null || amount <= 0)
-        {
-            return false;
-        }
-
-        bool changed = false;
-
-        for (int i = InventoryStartIndex; i < _slots.Count; i++)
+        for (int i = startIndex; i < endIndex; i++)
         {
             InventorySlotData slot = _slots[i];
 
-            if (slot.Item == item)
+            if (slot.Item != item || slot.Quantity >= item.MaxStack)
             {
-                int removeAmount = Mathf.Min(slot.Quantity, amount);
+                continue;
+            }
 
-                if (removeAmount <= 0)
-                {
-                    continue;
-                }
+            int amountToAdd = Mathf.Min(item.MaxStack - slot.Quantity, amount);
+            slot.Quantity += amountToAdd;
+            amount -= amountToAdd;
 
-                slot.Quantity -= removeAmount;
-                amount -= removeAmount;
-                changed = true;
-
-                if (slot.Quantity <= 0)
-                {
-                    slot.Item = null;
-                    slot.Quantity = 0;
-                }
-
-                if (amount <= 0)
-                {
-                    NotifyInventoryChanged();
-                    return true;
-                }
+            if (amount == 0)
+            {
+                return 0;
             }
         }
 
-        for (int i = 0; i < InventoryStartIndex; i++)
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            InventorySlotData slot = _slots[i];
+
+            if (HasItem(slot))
+            {
+                continue;
+            }
+
+            int amountToAdd = Mathf.Min(item.MaxStack, amount);
+            slot.Item = item;
+            slot.Quantity = amountToAdd;
+            amount -= amountToAdd;
+
+            if (amount == 0)
+            {
+                return 0;
+            }
+        }
+
+        return amount;
+    }
+
+    private int RemoveFromRange(ItemData item, int amount, int startIndex, int endIndex)
+    {
+        for (int i = startIndex; i < endIndex; i++)
         {
             InventorySlotData slot = _slots[i];
 
@@ -143,202 +304,58 @@ public class InventorySystem : MonoBehaviour
                 continue;
             }
 
-            int removeAmount = Mathf.Min(slot.Quantity, amount);
+            int amountToRemove = Mathf.Min(slot.Quantity, amount);
+            slot.Quantity -= amountToRemove;
+            amount -= amountToRemove;
 
-            if (removeAmount <= 0)
-            {
-                continue;
-            }
-
-            slot.Quantity -= removeAmount;
-            amount -= removeAmount;
-            changed = true;
-
-            if (slot.Quantity <= 0)
+            if (slot.Quantity == 0)
             {
                 slot.Item = null;
-                slot.Quantity = 0;
             }
 
-            if (amount <= 0)
+            if (amount == 0)
             {
-                NotifyInventoryChanged();
-                return true;
+                return 0;
             }
         }
 
-        if (changed)
-        {
-            NotifyInventoryChanged();
-        }
-
-        return false;
+        return amount;
     }
 
-    public bool TryAddToSlot(int slotIndex, ItemData item, int amount, out int amountRemaining)
+    private bool SelectHotbarSlot(int slotIndex, bool forceNotify)
     {
-        amountRemaining = amount;
-
-        if (!IsValidSlotIndex(slotIndex) || item == null || amount <= 0)
+        if (slotIndex < 0 || slotIndex >= HotbarSize)
         {
             return false;
         }
 
-        InventorySlotData slot = _slots[slotIndex];
-
-        if (!SlotHasItem(slot))
-        {
-            int amountToPlace = Mathf.Min(amount, item.MaxStack);
-
-            if (amountToPlace <= 0)
-            {
-                return false;
-            }
-
-            slot.Item = item;
-            slot.Quantity = amountToPlace;
-            amountRemaining = amount - amountToPlace;
-            NotifyInventoryChanged();
-            return true;
-        }
-
-        if (slot.Item != item)
+        if (!forceNotify && _selectedHotbarSlotIndex == slotIndex)
         {
             return false;
         }
 
-        int spaceLeft = item.MaxStack - slot.Quantity;
-
-        if (spaceLeft <= 0)
-        {
-            return false;
-        }
-
-        int amountToAdd = Mathf.Min(spaceLeft, amount);
-        slot.Quantity += amountToAdd;
-        amountRemaining = amount - amountToAdd;
-        NotifyInventoryChanged();
+        _selectedHotbarSlotIndex = slotIndex;
+        HotbarSelectionChanged?.Invoke(_selectedHotbarSlotIndex);
         return true;
     }
 
-    public bool TryAddOneToSlot(int slotIndex, ItemData item)
+    private bool IsValidSlotIndex(int slotIndex)
     {
-        return TryAddToSlot(slotIndex, item, 1, out _);
+        return _slots != null && slotIndex >= 0 && slotIndex < _slots.Count;
     }
 
-    public bool DropItemFromSlot(int slotIndex)
+    private static bool IsValidItemRequest(ItemData item, int amount)
     {
-        if (!IsValidSlotIndex(slotIndex))
-        {
-            return false;
-        }
-
-        InventorySlotData slot = _slots[slotIndex];
-
-        if (!SlotHasItem(slot))
-        {
-            return false;
-        }
-
-        slot.Item = null;
-        slot.Quantity = 0;
-        NotifyInventoryChanged();
-        return true;
+        return item != null && amount > 0;
     }
 
-    public void MoveOrSwapItem(int fromIndex, int toIndex)
+    private static bool HasItem(InventorySlotData slot)
     {
-        if (!IsValidSlotIndex(fromIndex) || !IsValidSlotIndex(toIndex))
-        {
-            return;
-        }
-
-        if (fromIndex == toIndex)
-        {
-            return;
-        }
-
-        InventorySlotData fromSlot = _slots[fromIndex];
-        InventorySlotData toSlot = _slots[toIndex];
-
-        if (!SlotHasItem(fromSlot))
-        {
-            return;
-        }
-
-        if (!SlotHasItem(toSlot))
-        {
-            toSlot.Item = fromSlot.Item;
-            toSlot.Quantity = fromSlot.Quantity;
-
-            fromSlot.Item = null;
-            fromSlot.Quantity = 0;
-        }
-        else if (fromSlot.Item == toSlot.Item)
-        {
-            int maxStack = fromSlot.Item.MaxStack;
-            int combinedQuantity = fromSlot.Quantity + toSlot.Quantity;
-
-            if (combinedQuantity <= maxStack)
-            {
-                toSlot.Quantity = combinedQuantity;
-                fromSlot.Item = null;
-                fromSlot.Quantity = 0;
-            }
-            else
-            {
-                toSlot.Quantity = maxStack;
-                fromSlot.Quantity = combinedQuantity - maxStack;
-            }
-        }
-        else
-        {
-            ItemData cachedItem = toSlot.Item;
-            int cachedQuantity = toSlot.Quantity;
-
-            toSlot.Item = fromSlot.Item;
-            toSlot.Quantity = fromSlot.Quantity;
-
-            fromSlot.Item = cachedItem;
-            fromSlot.Quantity = cachedQuantity;
-        }
-
-        NotifyInventoryChanged();
-    }
-
-    public List<InventorySlotData> GetSlots()
-    {
-        return _slots;
-    }
-
-    private bool IsValidSlotIndex(int index)
-    {
-        return index >= 0 && index < _slots.Count;
-    }
-
-    private bool SlotHasItem(InventorySlotData slot)
-    {
-        return slot.Item != null && slot.Quantity > 0;
+        return slot != null && slot.Item != null && slot.Quantity > 0;
     }
 
     private void NotifyInventoryChanged()
     {
-        PrintInventory();
         InventoryChanged?.Invoke();
-    }
-
-    private void PrintInventory()
-    {
-        string result = "Inventory: ";
-
-        for (int i = 0; i < _slots.Count; i++)
-        {
-            if (_slots[i].Item != null)
-            {
-                result += $"[{i}: {_slots[i].Item.ItemName} x{_slots[i].Quantity}] ";
-            }
-        }
-
-        Debug.Log(result);
     }
 }

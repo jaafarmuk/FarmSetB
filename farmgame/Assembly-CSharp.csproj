@@ -51,22 +51,16 @@
   <ItemGroup>
     <Compile Include="Assets\_Core\Data\InventorySlotData.cs" />
     <Compile Include="Assets\Scripts\FarmingTools\InventorySystem.cs" />
-    <Compile Include="Assets\Scripts\FarmingTools\HeldItemUI.cs" />
-    <Compile Include="Assets\Scripts\FarmingTools\ItemSourceDragUI.cs" />
-    <Compile Include="Assets\Scripts\FarmingTools\HotbarController.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmToolType.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmCropDefinition.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmGridCellData.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmTileState.cs" />
-    <Compile Include="Assets\Scripts\FarmingTools\HeldItemSystem.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmGridInputTester.cs" />
     <Compile Include="Assets\_Core\Data\ItemData.cs" />
-    <Compile Include="Assets\Scripts\FarmingTools\InventoryRuntimeBootstrap.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmCropType.cs" />
     <Compile Include="Assets\Scripts\FarmingTools\InventoryUI.cs" />
     <Compile Include="Assets\Scripts\FarmingTools\InventorySlotUI.cs" />
     <Compile Include="Assets\Scripts\FarmGrid\FarmGridManager.cs" />
-    <Compile Include="Assets\Scripts\FarmingTools\ItemSourceUI.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

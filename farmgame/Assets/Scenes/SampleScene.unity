@@ -394,24 +394,28 @@ MonoBehaviour:
   _wateredSoilColor: {r: 0.24, g: 0.39, b: 0.54, a: 1}
   _cropDefinitions:
   - CropType: 1
+    HarvestItem: {fileID: 11400000, guid: 460828006578d93498a81e2482fe21e1, type: 2}
     Stage00Sprite: {fileID: 7929935949600721010, guid: 3f367c3f54192264b9b19d367b7462d2, type: 3}
     Stage01Sprite: {fileID: 2901771626556814720, guid: 1b7bb888565654f4789368050a410fd3, type: 3}
     Stage02Sprite: {fileID: -9073547677343782098, guid: 2edfab17e527b284988fb3b4a2bc15a3, type: 3}
     Stage03Sprite: {fileID: 6556523641891367704, guid: a4e37ce98b7ce8946b30c5bf5424cb79, type: 3}
     Stage04Sprite: {fileID: 30920674132646118, guid: 3db362d25be3dd74086b00d6f5b9adad, type: 3}
   - CropType: 2
+    HarvestItem: {fileID: 11400000, guid: 25e47b13df32e1744af15f9fdc3dd647, type: 2}
     Stage00Sprite: {fileID: -110202509705018397, guid: 01a8a2b75aee418458c02dbf91148ee5, type: 3}
     Stage01Sprite: {fileID: -4589858782877362093, guid: d3d468a8552330d48b245a461bb9a162, type: 3}
     Stage02Sprite: {fileID: -1155486168486944139, guid: 2b2a14922dbd77a40be8c3ecd3a9609a, type: 3}
     Stage03Sprite: {fileID: -3616871226989106798, guid: 73c69dd44535d3248a5ed234a189c4f2, type: 3}
     Stage04Sprite: {fileID: 2288580185458606559, guid: 1c1ed0e90eb17194a8f6f51db87cbef1, type: 3}
   - CropType: 3
+    HarvestItem: {fileID: 11400000, guid: 5547281b64d51334e932dd9be51f2269, type: 2}
     Stage00Sprite: {fileID: 2278089367008173814, guid: 4cf2503baeb4b5147b2e55661d186843, type: 3}
     Stage01Sprite: {fileID: -2495102797091314606, guid: 3f80addd575160c4a88e87dd9bb86f2b, type: 3}
     Stage02Sprite: {fileID: 6748928525920526408, guid: 9aa1e9849fc24164a94c43a2b332ba73, type: 3}
     Stage03Sprite: {fileID: -2082926400210208391, guid: 7820e138c7a9cb245a374b16ba1a47fa, type: 3}
     Stage04Sprite: {fileID: -999495800006411920, guid: d0bb0ddc06a145f48bf7f6c950839054, type: 3}
   - CropType: 4
+    HarvestItem: {fileID: 11400000, guid: b936450ed2fe4f049b59a6933b54f5e5, type: 2}
     Stage00Sprite: {fileID: -4541760308731362826, guid: 02663f51f77b63b47abe2999ec88e2d4, type: 3}
     Stage01Sprite: {fileID: 2382208071769853359, guid: b3096d91e52cf754999cfdfdffa499e8, type: 3}
     Stage02Sprite: {fileID: -6210164549916450422, guid: 4a9c67c97d27a5b4aa7652a3a1c4db72, type: 3}
@@ -419,6 +423,7 @@ MonoBehaviour:
     Stage04Sprite: {fileID: -1840190759907527076, guid: 515e241cf2b8c2e4ca049d0cdbc18f29, type: 3}
   _cropSpriteScale: 0.45
   _maxGrowthStage: 4
+  _inventorySystem: {fileID: 900000202}
 --- !u!114 &900000103
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -432,11 +437,84 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FarmGridInputTester
   _farmGridManager: {fileID: 900000102}
+  _inventorySystem: {fileID: 900000202}
   _worldCamera: {fileID: 519420031}
-  _hotbarController: {fileID: 0}
-  _selectedTool: 0
-  _selectedCrop: 0
   _advanceDayKey: 110
+--- !u!1 &900000200
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 900000201}
+  - component: {fileID: 900000202}
+  - component: {fileID: 900000203}
+  m_Layer: 0
+  m_Name: Inventory
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &900000201
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000200}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &900000202
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8bd304a227e9c3f4f975269b1f578501, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InventorySystem
+  _hotbarSize: 8
+  _inventorySize: 20
+  _startingHotbarItems:
+  - {fileID: 11400000, guid: ac0f77ca64810044886bea7af6377b8e, type: 2}
+  - {fileID: 11400000, guid: b38e063443a8c4d48a2a32b2180c0d44, type: 2}
+  - {fileID: 11400000, guid: 460828006578d93498a81e2482fe21e1, type: 2}
+  - {fileID: 11400000, guid: 25e47b13df32e1744af15f9fdc3dd647, type: 2}
+  - {fileID: 11400000, guid: b936450ed2fe4f049b59a6933b54f5e5, type: 2}
+  - {fileID: 11400000, guid: 5547281b64d51334e932dd9be51f2269, type: 2}
+  - {fileID: 11400000, guid: f6a12661041f1224593deb90b5ff15d0, type: 2}
+  - {fileID: 0}
+  _selectedHotbarSlotIndex: 0
+--- !u!114 &900000203
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 060929af4f81ccc458ab18f7183e796c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryUI
+  _inventorySystem: {fileID: 900000202}
+  _inventoryPanel: {fileID: 0}
+  _inventorySlotsContainer: {fileID: 0}
+  _hotbarSlotsContainer: {fileID: 0}
+  _slotPrefab: {fileID: 0}
+  _toggleInventoryKey: 101
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -444,3 +522,4 @@ SceneRoots:
   - {fileID: 519420032}
   - {fileID: 619394802}
   - {fileID: 900000101}
+  - {fileID: 900000201}

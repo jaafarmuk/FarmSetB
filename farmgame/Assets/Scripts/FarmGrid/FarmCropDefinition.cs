@@ -4,6 +4,7 @@ using UnityEngine;
 public class FarmCropDefinition
 {
     public FarmCropType CropType;
+    public ItemData HarvestItem;
     public Sprite Stage00Sprite;
     public Sprite Stage01Sprite;
     public Sprite Stage02Sprite;

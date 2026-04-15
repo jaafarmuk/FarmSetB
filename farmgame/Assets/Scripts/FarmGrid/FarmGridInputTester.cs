@@ -4,17 +4,9 @@ using UnityEngine.EventSystems;
 public class FarmGridInputTester : MonoBehaviour
 {
     [SerializeField] private FarmGridManager _farmGridManager;
+    [SerializeField] private InventorySystem _inventorySystem;
     [SerializeField] private Camera _worldCamera;
-    [SerializeField] private HotbarController _hotbarController;
-    [SerializeField] private FarmToolType _selectedTool = FarmToolType.Shovel;
-    [SerializeField] private FarmCropType _selectedCrop = FarmCropType.None;
     [SerializeField] private KeyCode _advanceDayKey = KeyCode.N;
-
-    private bool _hasSelection = true;
-
-    public FarmToolType SelectedTool => _selectedTool;
-    public FarmCropType SelectedCrop => _selectedCrop;
-    public bool IsToolMode => _selectedCrop == FarmCropType.None;
 
     private void Awake()
     {
@@ -23,62 +15,60 @@ public class FarmGridInputTester : MonoBehaviour
             _farmGridManager = GetComponent<FarmGridManager>();
         }
 
+        if (_inventorySystem == null)
+        {
+            _inventorySystem = UnityEngine.Object.FindAnyObjectByType<InventorySystem>();
+        }
+
         if (_worldCamera == null)
         {
             _worldCamera = Camera.main;
         }
-
-        if (_hotbarController == null)
-        {
-            _hotbarController = Object.FindAnyObjectByType<HotbarController>();
-        }
-
-        SyncSelectionFromHotbar();
     }
 
     private void Update()
     {
-        if (_farmGridManager == null || _worldCamera == null)
+        if (_farmGridManager == null || _inventorySystem == null || _worldCamera == null)
         {
             return;
         }
-
-        EnsureHotbarControllerReference();
-        SyncSelectionFromHotbar();
 
         if (Input.GetKeyDown(_advanceDayKey))
         {
             _farmGridManager.AdvanceDay();
         }
 
-        if (Input.GetMouseButtonDown(0))
-        {
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-            {
-                return;
-            }
-
-            TryUseSelectedToolOnTile();
-        }
-    }
-
-    private void TryUseSelectedToolOnTile()
-    {
-        if (!_hasSelection)
+        if (!Input.GetMouseButtonDown(0))
         {
             return;
         }
 
-        if (TryGetCellUnderMouse(out Vector2Int coordinates))
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
-            if (IsToolMode)
-            {
-                _farmGridManager.TryApplyTool(coordinates, _selectedTool);
-            }
-            else
-            {
-                _farmGridManager.TryPlantCrop(coordinates, _selectedCrop);
-            }
+            return;
+        }
+
+        if (!TryGetCellUnderMouse(out Vector2Int coordinates))
+        {
+            return;
+        }
+
+        ItemData selectedItem = _inventorySystem.SelectedHotbarItem;
+
+        if (selectedItem == null)
+        {
+            return;
+        }
+
+        if (TryGetToolType(selectedItem, out FarmToolType toolType))
+        {
+            _farmGridManager.TryApplyTool(coordinates, toolType);
+            return;
+        }
+
+        if (TryGetCropType(selectedItem, out FarmCropType cropType))
+        {
+            _farmGridManager.TryPlantCrop(coordinates, cropType);
         }
     }
 
@@ -90,73 +80,60 @@ public class FarmGridInputTester : MonoBehaviour
         return _farmGridManager.TryWorldToCell(worldPosition, out coordinates);
     }
 
-    private void SyncSelectionFromHotbar()
+    private static bool TryGetToolType(ItemData item, out FarmToolType toolType)
     {
-        if (_hotbarController == null)
+        toolType = default;
+
+        if (item == null)
         {
-            _hasSelection = false;
-            _selectedCrop = FarmCropType.None;
-            return;
+            return false;
         }
 
-        ItemData selectedItem = _hotbarController.SelectedItem;
-
-        if (selectedItem == null)
-        {
-            _hasSelection = false;
-            _selectedCrop = FarmCropType.None;
-            return;
-        }
-
-        ApplySelectionFromItem(selectedItem);
-    }
-
-    private void EnsureHotbarControllerReference()
-    {
-        if (_hotbarController == null)
-        {
-            _hotbarController = Object.FindAnyObjectByType<HotbarController>();
-        }
-    }
-
-    private void ApplySelectionFromItem(ItemData selectedItem)
-    {
-        _hasSelection = true;
-
-        switch (selectedItem.ItemId)
+        switch (item.ItemId)
         {
             case "tool_shovel":
             case "tool_hoe":
-                _selectedTool = FarmToolType.Shovel;
-                _selectedCrop = FarmCropType.None;
-                break;
+                toolType = FarmToolType.Shovel;
+                return true;
             case "tool_watering_can":
-                _selectedTool = FarmToolType.WateringCan;
-                _selectedCrop = FarmCropType.None;
-                break;
+                toolType = FarmToolType.WateringCan;
+                return true;
             case "tool_axe":
             case "tool_sickle":
-                _selectedTool = FarmToolType.Axe;
-                _selectedCrop = FarmCropType.None;
-                break;
+                toolType = FarmToolType.Axe;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryGetCropType(ItemData item, out FarmCropType cropType)
+    {
+        cropType = FarmCropType.None;
+
+        if (item == null)
+        {
+            return false;
+        }
+
+        switch (item.ItemId)
+        {
             case "crop_beetroot":
             case "crop_tomato":
-                _selectedCrop = FarmCropType.Beetroot;
-                break;
+                cropType = FarmCropType.Beetroot;
+                return true;
             case "crop_carrot":
-                _selectedCrop = FarmCropType.Carrot;
-                break;
+                cropType = FarmCropType.Carrot;
+                return true;
             case "crop_potato":
             case "crop_corn":
-                _selectedCrop = FarmCropType.Potato;
-                break;
+                cropType = FarmCropType.Potato;
+                return true;
             case "crop_wheat":
-                _selectedCrop = FarmCropType.Wheat;
-                break;
+                cropType = FarmCropType.Wheat;
+                return true;
             default:
-                _hasSelection = false;
-                _selectedCrop = FarmCropType.None;
-                break;
+                return false;
         }
     }
 }
