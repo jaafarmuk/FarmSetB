@@ -99,6 +99,7 @@ public class FarmGridManager : MonoBehaviour
 
         cell.CropType = cropType;
         cell.GrowthStage = 0;
+        cell.WateredDaysSinceLastGrowth = 0;
         RefreshCropVisual(coordinates);
         return true;
     }
@@ -161,6 +162,7 @@ public class FarmGridManager : MonoBehaviour
 
         cell.CropType = FarmCropType.None;
         cell.GrowthStage = 0;
+        cell.WateredDaysSinceLastGrowth = 0;
         cell.State = FarmTileState.TilledSoil;
 
         RefreshCellVisual(coordinates);
@@ -183,7 +185,15 @@ public class FarmGridManager : MonoBehaviour
                     cell.State == FarmTileState.WateredSoil &&
                     cell.GrowthStage < _maxGrowthStage)
                 {
-                    cell.GrowthStage++;
+                    FarmCropDefinition cropDefinition = GetCropDefinition(cell.CropType);
+                    int daysPerGrowthStage = cropDefinition != null ? Mathf.Max(1, cropDefinition.DaysPerGrowthStage) : 1;
+                    cell.WateredDaysSinceLastGrowth++;
+
+                    if (cell.WateredDaysSinceLastGrowth >= daysPerGrowthStage)
+                    {
+                        cell.GrowthStage++;
+                        cell.WateredDaysSinceLastGrowth = 0;
+                    }
                 }
 
                 if (cell.State == FarmTileState.WateredSoil)

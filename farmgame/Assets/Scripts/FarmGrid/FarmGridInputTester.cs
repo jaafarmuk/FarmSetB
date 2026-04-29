@@ -14,6 +14,7 @@ public class FarmGridInputTester : MonoBehaviour
     [SerializeField] private int _wateringCanCost = 5;
     [SerializeField] private int _plantingCost = 5;
     [SerializeField] private int _harvestCost = 10;
+    [SerializeField] private string _notEnoughStaminaMessage = "Not enough stamina.";
 
     private void Awake()
     {
@@ -91,6 +92,7 @@ public class FarmGridInputTester : MonoBehaviour
 
         if (!_staminaSystem.CanAfford(staminaCost))
         {
+            ShowNotEnoughStaminaFeedback(staminaCost);
             return;
         }
 
@@ -104,12 +106,32 @@ public class FarmGridInputTester : MonoBehaviour
     {
         if (!_staminaSystem.CanAfford(_plantingCost))
         {
+            ShowNotEnoughStaminaFeedback(_plantingCost);
             return;
         }
 
         if (_farmGridManager.TryPlantCrop(coordinates, cropType))
         {
-            _staminaSystem.TrySpend(_plantingCost);
+            int selectedSlotIndex = _inventorySystem.SelectedHotbarSlotIndex;
+            InventorySlotData selectedSlotBeforeConsumption = _inventorySystem.GetSlot(selectedSlotIndex);
+            string selectedItemIdBeforeConsumption = selectedSlotBeforeConsumption != null && selectedSlotBeforeConsumption.Item != null
+                ? selectedSlotBeforeConsumption.Item.ItemId
+                : "null";
+            int quantityBeforeConsumption = selectedSlotBeforeConsumption != null ? selectedSlotBeforeConsumption.Quantity : 0;
+
+            Debug.Log($"Before seed consumption -> HotbarIndex: {selectedSlotIndex}, ItemId: {selectedItemIdBeforeConsumption}, QuantityBefore: {quantityBeforeConsumption}");
+
+            if (_inventorySystem.TryConsumeSelectedHotbarItem(1))
+            {
+                InventorySlotData selectedSlotAfterConsumption = _inventorySystem.GetSlot(selectedSlotIndex);
+                string selectedItemIdAfterConsumption = selectedSlotAfterConsumption != null && selectedSlotAfterConsumption.Item != null
+                    ? selectedSlotAfterConsumption.Item.ItemId
+                    : "null";
+                int quantityAfterConsumption = selectedSlotAfterConsumption != null ? selectedSlotAfterConsumption.Quantity : 0;
+
+                Debug.Log($"After seed consumption -> HotbarIndex: {selectedSlotIndex}, ItemId: {selectedItemIdAfterConsumption}, QuantityAfter: {quantityAfterConsumption}");
+                _staminaSystem.TrySpend(_plantingCost);
+            }
         }
     }
 
@@ -157,6 +179,11 @@ public class FarmGridInputTester : MonoBehaviour
             FarmToolType.Axe => _harvestCost,
             _ => 0
         };
+    }
+
+    private void ShowNotEnoughStaminaFeedback(int requiredStamina)
+    {
+        Debug.Log($"{_notEnoughStaminaMessage} Required: {requiredStamina}, Current: {_staminaSystem.CurrentStamina}.");
     }
 
     private static bool TryGetCropType(ItemData item, out FarmCropType cropType)

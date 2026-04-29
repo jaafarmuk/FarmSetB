@@ -7,6 +7,7 @@ public class FarmGridCellData
     public FarmTileState State;
     public FarmCropType CropType;
     public int GrowthStage;
+    public int WateredDaysSinceLastGrowth;
 
     public FarmGridCellData(int x, int y)
     {
@@ -14,5 +15,6 @@ public class FarmGridCellData
         State = FarmTileState.NormalSoil;
         CropType = FarmCropType.None;
         GrowthStage = 0;
+        WateredDaysSinceLastGrowth = 0;
     }
 }

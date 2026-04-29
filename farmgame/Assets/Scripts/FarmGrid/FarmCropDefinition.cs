@@ -5,6 +5,7 @@ public class FarmCropDefinition
 {
     public FarmCropType CropType;
     public ItemData HarvestItem;
+    [Min(1)] public int DaysPerGrowthStage = 1;
     public Sprite Stage00Sprite;
     public Sprite Stage01Sprite;
     public Sprite Stage02Sprite;

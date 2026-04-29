@@ -7,9 +7,12 @@ public class InventorySystem : MonoBehaviour
     [SerializeField] private int _hotbarSize = 8;
     [SerializeField] private int _inventorySize = 20;
     [SerializeField] private ItemData[] _startingHotbarItems;
+    [SerializeField] private int[] _startingHotbarQuantities;
     [SerializeField] private int _selectedHotbarSlotIndex;
 
     private List<InventorySlotData> _slots;
+
+    private const int DefaultStartingQuantity = 1;
 
     public event Action InventoryChanged;
     public event Action<int> HotbarSelectionChanged;
@@ -25,8 +28,14 @@ public class InventorySystem : MonoBehaviour
     private void Awake()
     {
         InitializeSlots();
+        NormalizeStartingHotbarQuantityConfiguration();
         SeedStartingHotbarItems();
         SelectHotbarSlot(_selectedHotbarSlotIndex, true);
+    }
+
+    private void OnValidate()
+    {
+        NormalizeStartingHotbarQuantityConfiguration();
     }
 
     public InventorySlotData GetSlot(int slotIndex)
@@ -204,6 +213,33 @@ public class InventorySystem : MonoBehaviour
         return true;
     }
 
+    public bool TryConsumeSelectedHotbarItem(int amount)
+    {
+        if (amount <= 0)
+        {
+            return false;
+        }
+
+        int selectedSlotIndex = SelectedHotbarSlotIndex;
+        InventorySlotData slot = GetSlot(selectedSlotIndex);
+
+        if (!HasItem(slot) || slot.Quantity < amount)
+        {
+            return false;
+        }
+
+        slot.Quantity -= amount;
+
+        if (slot.Quantity <= 0)
+        {
+            slot.Item = null;
+            slot.Quantity = 0;
+        }
+
+        NotifyInventoryChanged();
+        return true;
+    }
+
     public void SelectNextHotbarSlot(int direction)
     {
         if (HotbarSize <= 0 || direction == 0)
@@ -244,10 +280,83 @@ public class InventorySystem : MonoBehaviour
             }
 
             InventorySlotData slot = _slots[i];
+            int initialQuantity = GetStartingQuantity(i, item);
             slot.Item = item;
-            slot.Quantity = 1;
+            slot.Quantity = initialQuantity;
+
+            Debug.Log($"Starting hotbar item -> HotbarIndex: {i}, ItemId: {item.ItemId}, InitialQuantity: {initialQuantity}");
         }
     }
+
+    private int GetStartingQuantity(int slotIndex, ItemData item)
+    {
+        int configuredQuantity = GetConfiguredStartingHotbarQuantity(slotIndex);
+        return Mathf.Clamp(configuredQuantity, 1, Mathf.Max(1, item.MaxStack));
+    }
+
+    [ContextMenu("Log Starting Hotbar Quantity Configuration")]
+    private void LogStartingHotbarQuantityConfiguration()
+    {
+        NormalizeStartingHotbarQuantityConfiguration();
+
+        int itemCount = _startingHotbarItems != null ? _startingHotbarItems.Length : 0;
+
+        for (int i = 0; i < itemCount; i++)
+        {
+            ItemData item = _startingHotbarItems[i];
+            string itemId = item != null ? item.ItemId : "null";
+            int configuredQuantity = GetConfiguredStartingHotbarQuantity(i);
+            Debug.Log($"Configured starting hotbar item -> HotbarIndex: {i}, ItemId: {itemId}, Quantity: {configuredQuantity}");
+        }
+    }
+
+    [ContextMenu("Normalize Starting Hotbar Quantities")]
+    private void NormalizeStartingHotbarQuantityConfiguration()
+    {
+        int targetLength = _startingHotbarItems != null ? _startingHotbarItems.Length : 0;
+
+        if (targetLength <= 0)
+        {
+            _startingHotbarQuantities = Array.Empty<int>();
+            return;
+        }
+
+        if (_startingHotbarQuantities == null)
+        {
+            _startingHotbarQuantities = new int[targetLength];
+        }
+        else if (_startingHotbarQuantities.Length != targetLength)
+        {
+            int[] resizedQuantities = new int[targetLength];
+            int copyCount = Mathf.Min(_startingHotbarQuantities.Length, targetLength);
+
+            for (int i = 0; i < copyCount; i++)
+            {
+                resizedQuantities[i] = _startingHotbarQuantities[i];
+            }
+
+            _startingHotbarQuantities = resizedQuantities;
+        }
+
+        for (int i = 0; i < _startingHotbarQuantities.Length; i++)
+        {
+            if (_startingHotbarQuantities[i] <= 0)
+            {
+                _startingHotbarQuantities[i] = DefaultStartingQuantity;
+            }
+        }
+    }
+
+    private int GetConfiguredStartingHotbarQuantity(int slotIndex)
+    {
+        if (_startingHotbarQuantities == null || slotIndex < 0 || slotIndex >= _startingHotbarQuantities.Length)
+        {
+            return DefaultStartingQuantity;
+        }
+
+        return _startingHotbarQuantities[slotIndex];
+    }
+
 
     private int AddToRange(ItemData item, int amount, int startIndex, int endIndex)
     {

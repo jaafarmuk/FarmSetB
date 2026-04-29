@@ -11,7 +11,6 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private Transform _inventorySlotsContainer;
     [SerializeField] private Transform _hotbarSlotsContainer;
     [SerializeField] private InventorySlotUI _slotPrefab;
-    [SerializeField] private KeyCode _toggleInventoryKey = KeyCode.E;
 
     private readonly List<InventorySlotUI> _slotUis = new List<InventorySlotUI>();
     private Canvas _canvas;
@@ -145,7 +144,8 @@ public class InventoryUI : MonoBehaviour
 
     private void HandleInventoryToggleInput()
     {
-        if (_dragSourceIndex < 0 && Input.GetKeyDown(_toggleInventoryKey))
+        if (_dragSourceIndex < 0 &&
+            (Input.GetKeyDown(KeyCode.I) || Input.GetKeyDown(KeyCode.Tab)))
         {
             SetInventoryVisible(!IsInventoryVisible());
         }

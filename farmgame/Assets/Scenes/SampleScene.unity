@@ -156,7 +156,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -283,7 +283,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 073797afb82c5a1438f328866b10b3f0, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: 
   m_ComponentVersion: 2
   m_LightType: 4
@@ -394,9 +394,12 @@ MonoBehaviour:
   _normalSoilColor: {r: 0.47, g: 0.33, b: 0.21, a: 1}
   _tilledSoilColor: {r: 0.36, g: 0.24, b: 0.14, a: 1}
   _wateredSoilColor: {r: 0.24, g: 0.39, b: 0.54, a: 1}
+  _cropSpriteScale: 0.45
+  _maxGrowthStage: 4
   _cropDefinitions:
   - CropType: 1
     HarvestItem: {fileID: 11400000, guid: 460828006578d93498a81e2482fe21e1, type: 2}
+    DaysPerGrowthStage: 1
     Stage00Sprite: {fileID: 7929935949600721010, guid: 3f367c3f54192264b9b19d367b7462d2, type: 3}
     Stage01Sprite: {fileID: 2901771626556814720, guid: 1b7bb888565654f4789368050a410fd3, type: 3}
     Stage02Sprite: {fileID: -9073547677343782098, guid: 2edfab17e527b284988fb3b4a2bc15a3, type: 3}
@@ -404,6 +407,7 @@ MonoBehaviour:
     Stage04Sprite: {fileID: 30920674132646118, guid: 3db362d25be3dd74086b00d6f5b9adad, type: 3}
   - CropType: 2
     HarvestItem: {fileID: 11400000, guid: 25e47b13df32e1744af15f9fdc3dd647, type: 2}
+    DaysPerGrowthStage: 1
     Stage00Sprite: {fileID: -110202509705018397, guid: 01a8a2b75aee418458c02dbf91148ee5, type: 3}
     Stage01Sprite: {fileID: -4589858782877362093, guid: d3d468a8552330d48b245a461bb9a162, type: 3}
     Stage02Sprite: {fileID: -1155486168486944139, guid: 2b2a14922dbd77a40be8c3ecd3a9609a, type: 3}
@@ -411,6 +415,7 @@ MonoBehaviour:
     Stage04Sprite: {fileID: 2288580185458606559, guid: 1c1ed0e90eb17194a8f6f51db87cbef1, type: 3}
   - CropType: 3
     HarvestItem: {fileID: 11400000, guid: 5547281b64d51334e932dd9be51f2269, type: 2}
+    DaysPerGrowthStage: 1
     Stage00Sprite: {fileID: 2278089367008173814, guid: 4cf2503baeb4b5147b2e55661d186843, type: 3}
     Stage01Sprite: {fileID: -2495102797091314606, guid: 3f80addd575160c4a88e87dd9bb86f2b, type: 3}
     Stage02Sprite: {fileID: 6748928525920526408, guid: 9aa1e9849fc24164a94c43a2b332ba73, type: 3}
@@ -418,13 +423,12 @@ MonoBehaviour:
     Stage04Sprite: {fileID: -999495800006411920, guid: d0bb0ddc06a145f48bf7f6c950839054, type: 3}
   - CropType: 4
     HarvestItem: {fileID: 11400000, guid: b936450ed2fe4f049b59a6933b54f5e5, type: 2}
+    DaysPerGrowthStage: 1
     Stage00Sprite: {fileID: -4541760308731362826, guid: 02663f51f77b63b47abe2999ec88e2d4, type: 3}
     Stage01Sprite: {fileID: 2382208071769853359, guid: b3096d91e52cf754999cfdfdffa499e8, type: 3}
     Stage02Sprite: {fileID: -6210164549916450422, guid: 4a9c67c97d27a5b4aa7652a3a1c4db72, type: 3}
     Stage03Sprite: {fileID: 1293537405293182323, guid: b10aa44507846cc419d7476b5e368c6b, type: 3}
     Stage04Sprite: {fileID: -1840190759907527076, guid: 515e241cf2b8c2e4ca049d0cdbc18f29, type: 3}
-  _cropSpriteScale: 0.45
-  _maxGrowthStage: 4
   _inventorySystem: {fileID: 900000202}
 --- !u!114 &900000103
 MonoBehaviour:
@@ -447,6 +451,7 @@ MonoBehaviour:
   _wateringCanCost: 5
   _plantingCost: 5
   _harvestCost: 10
+  _notEnoughStaminaMessage: Not enough stamina.
 --- !u!114 &900000104
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -457,7 +462,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2f3ca884fb714af6ac8c2ad8b1360433, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StaminaSystem
   _maxStamina: 100
   _currentStamina: 100
@@ -471,7 +476,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 15d1b671ca3c45bcb6ca5580c91b32f6, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StaminaUI
   _staminaSystem: {fileID: 900000104}
 --- !u!1 &900000200
@@ -499,13 +504,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 900000200}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &900000202
 MonoBehaviour:
@@ -530,6 +535,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5547281b64d51334e932dd9be51f2269, type: 2}
   - {fileID: 11400000, guid: f6a12661041f1224593deb90b5ff15d0, type: 2}
   - {fileID: 0}
+  _startingHotbarQuantities: 01000000010000000a0000000a0000000a0000000a0000000100000001000000
   _selectedHotbarSlotIndex: 0
 --- !u!114 &900000203
 MonoBehaviour:
@@ -549,6 +555,7 @@ MonoBehaviour:
   _hotbarSlotsContainer: {fileID: 0}
   _slotPrefab: {fileID: 0}
   _toggleInventoryKey: 101
+  _alternateToggleInventoryKey: 9
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
