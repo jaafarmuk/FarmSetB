@@ -156,7 +156,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -283,7 +283,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 073797afb82c5a1438f328866b10b3f0, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_ComponentVersion: 2
   m_LightType: 4
@@ -351,6 +351,8 @@ GameObject:
   - component: {fileID: 900000101}
   - component: {fileID: 900000102}
   - component: {fileID: 900000103}
+  - component: {fileID: 900000104}
+  - component: {fileID: 900000105}
   m_Layer: 0
   m_Name: MockFarmGrid
   m_TagString: Untagged
@@ -438,8 +440,40 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FarmGridInputTester
   _farmGridManager: {fileID: 900000102}
   _inventorySystem: {fileID: 900000202}
+  _staminaSystem: {fileID: 900000104}
   _worldCamera: {fileID: 519420031}
   _advanceDayKey: 110
+  _hoeCost: 10
+  _wateringCanCost: 5
+  _plantingCost: 5
+  _harvestCost: 10
+--- !u!114 &900000104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f3ca884fb714af6ac8c2ad8b1360433, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::StaminaSystem
+  _maxStamina: 100
+  _currentStamina: 100
+--- !u!114 &900000105
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15d1b671ca3c45bcb6ca5580c91b32f6, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::StaminaUI
+  _staminaSystem: {fileID: 900000104}
 --- !u!1 &900000200
 GameObject:
   m_ObjectHideFlags: 0

@@ -5,8 +5,15 @@ public class FarmGridInputTester : MonoBehaviour
 {
     [SerializeField] private FarmGridManager _farmGridManager;
     [SerializeField] private InventorySystem _inventorySystem;
+    [SerializeField] private StaminaSystem _staminaSystem;
     [SerializeField] private Camera _worldCamera;
     [SerializeField] private KeyCode _advanceDayKey = KeyCode.N;
+
+    [Header("Stamina Costs")]
+    [SerializeField] private int _hoeCost = 10;
+    [SerializeField] private int _wateringCanCost = 5;
+    [SerializeField] private int _plantingCost = 5;
+    [SerializeField] private int _harvestCost = 10;
 
     private void Awake()
     {
@@ -20,6 +27,11 @@ public class FarmGridInputTester : MonoBehaviour
             _inventorySystem = UnityEngine.Object.FindAnyObjectByType<InventorySystem>();
         }
 
+        if (_staminaSystem == null)
+        {
+            _staminaSystem = GetComponent<StaminaSystem>();
+        }
+
         if (_worldCamera == null)
         {
             _worldCamera = Camera.main;
@@ -28,7 +40,7 @@ public class FarmGridInputTester : MonoBehaviour
 
     private void Update()
     {
-        if (_farmGridManager == null || _inventorySystem == null || _worldCamera == null)
+        if (_farmGridManager == null || _inventorySystem == null || _staminaSystem == null || _worldCamera == null)
         {
             return;
         }
@@ -36,6 +48,7 @@ public class FarmGridInputTester : MonoBehaviour
         if (Input.GetKeyDown(_advanceDayKey))
         {
             _farmGridManager.AdvanceDay();
+            _staminaSystem.RestoreToMax();
         }
 
         if (!Input.GetMouseButtonDown(0))
@@ -62,13 +75,41 @@ public class FarmGridInputTester : MonoBehaviour
 
         if (TryGetToolType(selectedItem, out FarmToolType toolType))
         {
-            _farmGridManager.TryApplyTool(coordinates, toolType);
+            TryApplyToolAction(coordinates, toolType);
             return;
         }
 
         if (TryGetCropType(selectedItem, out FarmCropType cropType))
         {
-            _farmGridManager.TryPlantCrop(coordinates, cropType);
+            TryPlantCropAction(coordinates, cropType);
+        }
+    }
+
+    private void TryApplyToolAction(Vector2Int coordinates, FarmToolType toolType)
+    {
+        int staminaCost = GetToolCost(toolType);
+
+        if (!_staminaSystem.CanAfford(staminaCost))
+        {
+            return;
+        }
+
+        if (_farmGridManager.TryApplyTool(coordinates, toolType))
+        {
+            _staminaSystem.TrySpend(staminaCost);
+        }
+    }
+
+    private void TryPlantCropAction(Vector2Int coordinates, FarmCropType cropType)
+    {
+        if (!_staminaSystem.CanAfford(_plantingCost))
+        {
+            return;
+        }
+
+        if (_farmGridManager.TryPlantCrop(coordinates, cropType))
+        {
+            _staminaSystem.TrySpend(_plantingCost);
         }
     }
 
@@ -105,6 +146,17 @@ public class FarmGridInputTester : MonoBehaviour
             default:
                 return false;
         }
+    }
+
+    private int GetToolCost(FarmToolType toolType)
+    {
+        return toolType switch
+        {
+            FarmToolType.Shovel => _hoeCost,
+            FarmToolType.WateringCan => _wateringCanCost,
+            FarmToolType.Axe => _harvestCost,
+            _ => 0
+        };
     }
 
     private static bool TryGetCropType(ItemData item, out FarmCropType cropType)
